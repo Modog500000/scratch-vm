@@ -82,20 +82,20 @@ Target.prototype.getName = function () {
  */
 Target.prototype.lookupOrCreateVariable = function (name) {
     // If we have a local copy, return it.
-    if (this.variables.hasOwnProperty(name)) {
-        return this.variables[name];
+    var theVar = this.variables[name];
+    if (theVar !== undefined) {
+        return theVar;
     }
     // If the stage has a global copy, return it.
-    if (this.runtime && !this.isStage) {
+    if (this.runtime !== null && !this.isStage) {
         var stage = this.runtime.getTargetForStage();
-        if (stage.variables.hasOwnProperty(name)) {
-            return stage.variables[name];
+        theVar = stage.variables[name];
+        if (theVar !== undefined) {
+            return theVar;
         }
     }
     // No variable with this name exists - create it locally.
-    var newVariable = new Variable(name, 0, false);
-    this.variables[name] = newVariable;
-    return newVariable;
+    return this.variables[name] = new Variable(name, 0, false);
 };
 
 /**

@@ -288,8 +288,9 @@ Runtime.prototype.getIsHat = function (opcode) {
  * @return {Boolean} True if the op is known to be a edge-activated hat.
  */
 Runtime.prototype.getIsEdgeActivatedHat = function (opcode) {
-    return this._hats.hasOwnProperty(opcode) &&
-        this._hats[opcode].edgeActivated;
+    var hats = this._hats;
+    return hats.hasOwnProperty(opcode) &&
+        hats[opcode].edgeActivated;
 };
 
 /**
@@ -439,9 +440,15 @@ Runtime.prototype.startHats = function (requestedHatOpcode,
     }
     var instance = this;
     var newThreads = [];
+
+    for (var opts in optMatchFields) {
+        optMatchFields[opts] = optMatchFields[opts].toUpperCase();
+    }
+
     // Consider all scripts, looking for hats with opcode `requestedHatOpcode`.
     this.allScriptsDo(function (topBlockId, target) {
-        var potentialHatOpcode = target.blocks.getBlock(topBlockId).opcode;
+        var topBlock = target.blocks.getBlock(topBlockId);
+        var potentialHatOpcode = topBlock.opcode;
         if (potentialHatOpcode !== requestedHatOpcode) {
             // Not the right hat.
             return;
@@ -452,21 +459,21 @@ Runtime.prototype.startHats = function (requestedHatOpcode,
         // This needs to happen before the block is evaluated
         // (i.e., before the predicate can be run) because "broadcast and wait"
         // needs to have a precise collection of started threads.
-        var hatFields = target.blocks.getFields(topBlockId);
+        var hatFields = target.blocks.getFields(topBlock);
 
         // If no fields are present, check inputs (horizontal blocks)
         if (Object.keys(hatFields).length === 0) {
-            var hatInputs = target.blocks.getInputs(topBlockId);
+            var hatInputs = target.blocks.getInputs(topBlock);
             for (var input in hatInputs) {
-                var id = hatInputs[input].block;
-                var fields = target.blocks.getFields(id);
+                var cached = hatInputs[input].blockCached;
+                var fields = target.blocks.getFields(cached);
                 hatFields = Object.assign(fields, hatFields);
             }
         }
 
         if (optMatchFields) {
             for (var matchField in optMatchFields) {
-                if (hatFields[matchField].value !==
+                if (hatFields[matchField].value.toUpperCase() !==
                     optMatchFields[matchField]) {
                     // Field mismatch.
                     return;

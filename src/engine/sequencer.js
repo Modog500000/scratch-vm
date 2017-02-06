@@ -28,7 +28,10 @@ Sequencer.WARP_TIME = 500;
  */
 Sequencer.prototype.stepThreads = function () {
     // Work time is 75% of the thread stepping interval.
-    var WORK_TIME = 0.75 * this.runtime.currentStepTime;
+    var runtime = this.runtime;
+    var threads = runtime.threads;
+
+    var WORK_TIME = 0.75 * runtime.currentStepTime;
     // Start counting toward WORK_TIME.
     this.timer.start();
     // Count of active threads.
@@ -40,15 +43,15 @@ Sequencer.prototype.stepThreads = function () {
     // 1. We must have threads in the list, and some must be active.
     // 2. Time elapsed must be less than WORK_TIME.
     // 3. Either turbo mode, or no redraw has been requested by a primitive.
-    while (this.runtime.threads.length > 0 &&
+    while (threads.length > 0 &&
            numActiveThreads > 0 &&
            this.timer.timeElapsed() < WORK_TIME &&
-           (this.runtime.turboMode || !this.runtime.redrawRequested)) {
+           (runtime.turboMode || !runtime.redrawRequested)) {
         numActiveThreads = 0;
         // Attempt to run each thread one time.
-        for (var i = 0; i < this.runtime.threads.length; i++) {
-            var activeThread = this.runtime.threads[i];
-            if (activeThread.stack.length === 0 ||
+        for (var i = 0; i < threads.length; i++) {
+            var activeThread = threads[i];
+            if (activeThread.stack === null ||
                 activeThread.status === Thread.STATUS_DONE) {
                 // Finished with this thread.
                 if (doneThreads.indexOf(activeThread) < 0) {
@@ -76,7 +79,7 @@ Sequencer.prototype.stepThreads = function () {
         ranFirstTick = true;
     }
     // Filter inactive threads from `this.runtime.threads`.
-    this.runtime.threads = this.runtime.threads.filter(function (thread) {
+    runtime.threads = threads.filter(function ( thread) {
         if (doneThreads.indexOf(thread) > -1) {
             return false;
         }
@@ -95,8 +98,9 @@ Sequencer.prototype.stepThread = function (thread) {
         // A "null block" - empty branch.
         thread.popStack();
     }
-    while (thread.peekStack()) {
-        var isWarpMode = thread.peekStackFrame().warpMode;
+    var stackFrame = thread.peekStackFrame();
+    while (stackFrame) {
+        var isWarpMode = stackFrame.warpMode;
         if (isWarpMode && !thread.warpTimer) {
             // Initialize warp-mode timer if it hasn't been already.
             // This will start counting the thread toward `Sequencer.WARP_TIME`.
@@ -105,7 +109,7 @@ Sequencer.prototype.stepThread = function (thread) {
         }
         // Execute the current block.
         // Save the current block ID to notice if we did control flow.
-        currentBlockId = thread.peekStack();
+        currentBlockId = stackFrame.blockId;
         execute(this, thread);
         thread.blockGlowInFrame = currentBlockId;
         // If the thread has yielded or is waiting, yield to other threads.
@@ -124,21 +128,32 @@ Sequencer.prototype.stepThread = function (thread) {
             // thread.status to Thread.STATUS_RUNNING.
             return;
         }
+
         // If no control flow has happened, switch to next block.
-        if (thread.peekStack() === currentBlockId) {
+        stackFrame = thread.peekStackFrame()
+
+        if (stackFrame === null) {  // Thread must have terminated!
+            // No more stack to run!
+            thread.status = Thread.STATUS_DONE;
+            return;
+        }
+
+        if (stackFrame.blockId === currentBlockId) {
             thread.goToNextBlock();
         }
+
         // If no next block has been found at this point, look on the stack.
         while (!thread.peekStack()) {
-            thread.popStack();
+            stackFrame = thread.popStackGetFrame();
 
-            if (thread.stack.length === 0) {
+            // stackFrame = thread.peekStackFrame();
+
+            if (stackFrame === null) {
                 // No more stack to run!
                 thread.status = Thread.STATUS_DONE;
                 return;
             }
 
-            var stackFrame = thread.peekStackFrame();
             isWarpMode = stackFrame.warpMode;
 
             if (stackFrame.isLoop) {
@@ -156,7 +171,7 @@ Sequencer.prototype.stepThread = function (thread) {
                     // since loops need to be re-executed.
                     continue;
                 }
-            } else if (stackFrame.waitingReporter) {
+            } else if (stackFrame.waitingReporter !== null) {
                 // This level of the stack was waiting for a value.
                 // This means a reporter has just returned - so don't go
                 // to the next block for this level of the stack.
@@ -198,34 +213,38 @@ Sequencer.prototype.stepToBranch = function (thread, branchNum, isLoop) {
  * @param {!string} procedureCode Procedure code of procedure to step to.
  */
 Sequencer.prototype.stepToProcedure = function (thread, procedureCode) {
-    var definition = thread.target.blocks.getProcedureDefinition(procedureCode);
-    if (!definition) {
+    var blocks = thread.target.blocks;
+    var definition = blocks.getProcedureDefinition(procedureCode);
+    if (definition == null) {
         return;
     }
-    // Check if the call is recursive.
-    // If so, set the thread to yield after pushing.
-    var isRecursive = thread.isRecursiveCall(procedureCode);
     // To step to a procedure, we put its definition on the stack.
     // Execution for the thread will proceed through the definition hat
     // and on to the main definition of the procedure.
     // When that set of blocks finishes executing, it will be popped
     // from the stack by the sequencer, returning control to the caller.
-    thread.pushStack(definition);
+    var frame = thread.pushStack(definition);
+    thread.procStack.push(procedureCode);
     // In known warp-mode threads, only yield when time is up.
-    if (thread.peekStackFrame().warpMode &&
-        thread.warpTimer.timeElapsed() > Sequencer.WARP_TIME) {
+    // var frame = thread.peekStackFrame();
+    if (frame.warpMode && thread.warpTimer.timeElapsed() > Sequencer.WARP_TIME) {
         thread.status = Thread.STATUS_YIELD;
     } else {
         // Look for warp-mode flag on definition, and set the thread
         // to warp-mode if needed.
-        var definitionBlock = thread.target.blocks.getBlock(definition);
+        var definitionBlock = blocks.getBlock(definition);
         var doWarp = definitionBlock.mutation.warp;
         if (doWarp) {
-            thread.peekStackFrame().warpMode = true;
+            frame.warpMode = true;
         } else {
             // In normal-mode threads, yield any time we have a recursive call.
-            if (isRecursive) {
+
+            // Check if the call is recursive.
+            // If so, set the thread to yield after pushing.
+            if (thread.isRecursiveCall(procedureCode)) {
                 thread.status = Thread.STATUS_YIELD;
+            } else {
+                frame.procedureCode = procedureCode;
             }
         }
     }
@@ -236,8 +255,8 @@ Sequencer.prototype.stepToProcedure = function (thread, procedureCode) {
  * @param {!Thread} thread Thread object to retire.
  */
 Sequencer.prototype.retireThread = function (thread) {
-    thread.stack = [];
-    thread.stackFrame = [];
+    thread.stack = null;
+    // thread.stackFrame = null;
     thread.requestScriptGlowInFrame = false;
     thread.status = Thread.STATUS_DONE;
 };
