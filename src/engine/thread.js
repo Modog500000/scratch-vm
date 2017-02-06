@@ -20,12 +20,6 @@ var Thread = function (firstBlock) {
     this.procStack = [];    // stack of proc codes at execution
 
     /**
-     * Stack frames for the thread. Store metadata for the executing blocks.
-     * @type {Array.<Object>}
-     */
-    // this.stackFrames = [];
-
-    /**
      * Status of the thread, one of three states (below)
      * @type {number}
      */
@@ -133,7 +127,7 @@ Thread.prototype.popStack = function () {
 
 /**
  * Pop last block off the stack and its stack frame.
- * @return {?Object} The new last item on the stack frame.
+ * @return {?object} The new last item on the stack frame.
  */
 Thread.prototype.popStackGetFrame = function () {
     var frame = this.stack;
@@ -174,7 +168,7 @@ Thread.prototype.peekStack = function () {
 
 /**
  * Get top stack frame.
- * @return {?Object} Last stack frame stored on this thread.
+ * @return {?object} Last stack frame stored on this thread.
  */
 Thread.prototype.peekStackFrame = function () {
     return this.stack;
@@ -222,7 +216,7 @@ Thread.prototype.getParam = function (paramName) {
 
 /**
  * Whether the current execution of a thread is at the top of the stack.
- * @return {Boolean} True if execution is at top of the stack.
+ * @return {boolean} True if execution is at top of the stack.
  */
 Thread.prototype.atStackTop = function () {
     var stack = this.stack;

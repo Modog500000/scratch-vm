@@ -5,7 +5,7 @@ var HandleReport = require('./handle-report');
 /**
  * Utility function to determine if a value is a Promise.
  * @param {*} value Value to check for a Promise.
- * @return {Boolean} True if the value appears to be a Promise.
+ * @return {boolean} True if the value appears to be a Promise.
  */
 var isPromise = function (value) {
     return value != null && value.then && typeof value.then === 'function';
