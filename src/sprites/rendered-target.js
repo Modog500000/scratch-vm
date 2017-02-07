@@ -173,35 +173,42 @@ RenderedTarget.prototype.setXY = function (x, y) {
     // This is roughly what I see happening in Scratch 2 as best I can tell, please note it would most likely be best to expose
     // a method for accessing ths bounds rather than using the _allDrawables below.
 
-    var dx = x - oldX;
-    var dy = y - oldY;
-
-    var drawable = this.renderer._allDrawables[this.drawableID];
-    var aabb = drawable.getFastBounds();
-    var sx = 240 - Math.min(15, Math.floor((aabb.right - aabb.left) / 2));
-    if (aabb.right + dx < -sx) {
-        this.x -= sx + aabb.right;
-    } else if (aabb.left + dx > sx) {
-        this.x += sx - aabb.left;
-    } else {
-        this.x = x;
-    }
-    var sy = 180 - Math.min(15, Math.floor((aabb.top - aabb.bottom) / 2));
-    if (aabb.top + dy < -sy) {
-        this.y -= sy + aabb.top;
-    } else if (aabb.bottom + dy > sy) {
-        this.y += sy - aabb.bottom;
-    } else {
-        this.y = y;
-    }
     if (this.renderer) {
+        var dx = x - oldX;
+        var dy = y - oldY;
+
+        var drawable = this.renderer._allDrawables[this.drawableID];
+        var aabb = drawable.getFastBounds();
+        var runtimeConstructor = this.runtime.constructor;
+        var sx = runtimeConstructor.STAGE_WIDTH / 2 - Math.min(15, Math.floor((aabb.right - aabb.left) / 2));
+        if (aabb.right + dx < -sx) {
+            this.x -= sx + aabb.right;
+        } else if (aabb.left + dx > sx) {
+            this.x += sx - aabb.left;
+        } else {
+            this.x = x;
+        }
+        var sy = runtimeConstructor.STAGE_HEIGHT / 2 - Math.min(15, Math.floor((aabb.top - aabb.bottom) / 2));
+        if (aabb.top + dy < -sy) {
+            this.y -= sy + aabb.top;
+        } else if (aabb.bottom + dy > sy) {
+            this.y += sy - aabb.bottom;
+        } else {
+            this.y = y;
+        }
+
         this.renderer.updateDrawableProperties(this.drawableID, {
             position: [this.x, this.y]
         });
         if (this.visible) {
             this.runtime.requestRedraw();
         }
+
+    } else {
+        this.x = x;
+        this.y = y;
     }
+    
     this.emit(RenderedTarget.EVENT_TARGET_MOVED, this, oldX, oldY);
     this.runtime.spriteInfoReport(this);
 };
