@@ -7,7 +7,7 @@ var Thread = require('./thread');
  * @return {boolean} True if the value appears to be a Promise.
  */
 var isPromise = function (value) {
-    return value && value.then && typeof value.then === 'function';
+    return value != null && value.then && typeof value.then === 'function';
 };
 
 /**
@@ -19,34 +19,37 @@ var execute = function (sequencer, thread) {
     var runtime = sequencer.runtime;
     var target = thread.target;
 
-    // Current block to execute is the one on the top of the stack.
-    var currentBlockId = thread.peekStack();
-    var currentStackFrame = thread.peekStackFrame();
-
-    // Check where the block lives: target blocks or flyout blocks.
-    var targetHasBlock = (
-        typeof target.blocks.getBlock(currentBlockId) !== 'undefined'
-    );
-    var flyoutHasBlock = (
-        typeof runtime.flyoutBlocks.getBlock(currentBlockId) !== 'undefined'
-    );
-
     // Stop if block or target no longer exists.
-    if (!target || (!targetHasBlock && !flyoutHasBlock)) {
+    if (target == null) {
         // No block found: stop the thread; script no longer exists.
         sequencer.retireThread(thread);
         return;
     }
 
-    // Query info about the block.
-    var blockContainer = null;
-    if (targetHasBlock) {
-        blockContainer = target.blocks;
-    } else {
+    // Current block to execute is the one on the top of the stack.
+    var currentBlockId = thread.peekStack();
+    var currentStackFrame = thread.peekStackFrame();
+
+    var blockContainer = target.blocks;
+    var block = blockContainer.getBlock(currentBlockId);
+    if (block === undefined) {
         blockContainer = runtime.flyoutBlocks;
+        block = blockContainer.getBlock(currentBlockId);
+        // Stop if block or target no longer exists.
+        if (block === undefined) {
+            // No block found: stop the thread; script no longer exists.
+            sequencer.retireThread(thread);
+            return;
+        }
     }
-    var opcode = blockContainer.getOpcode(currentBlockId);
-    var fields = blockContainer.getFields(currentBlockId);
+
+    // if (eCount++ % 1000==0) {   // 603,000 times!!
+    //     console.log('Execute x' + eCount);
+    // }
+
+    //    var block = blockContainer.getBlock(currentBlockId);
+    var opcode = block.opcode; // blockContainer.getOpcode(currentBlockId);
+    var fields = block.fields; // blockContainer.getFields(currentBlockId);
     var inputs = blockContainer.getInputs(currentBlockId);
     var blockFunction = runtime.getOpcodeFunction(opcode);
     var isHat = runtime.getIsHat(opcode);
@@ -101,7 +104,7 @@ var execute = function (sequencer, thread) {
     // it's treated as a predicate; if not, execution will proceed as a no-op.
     // For single-field shadows: If the block has a single field, and no inputs,
     // immediately return the value of the field.
-    if (!blockFunction) {
+    if (blockFunction == null) {
         if (isHat) {
             // Skip through the block (hat with no predicate).
             return;
@@ -145,19 +148,19 @@ var execute = function (sequencer, thread) {
             execute(sequencer, thread);
             if (thread.status === Thread.STATUS_PROMISE_WAIT) {
                 return;
-            } else {
-                // Execution returned immediately,
-                // and presumably a value was reported, so pop the stack.
-                currentStackFrame.waitingReporter = null;
-                thread.popStack();
             }
+
+            // Execution returned immediately,
+            // and presumably a value was reported, so pop the stack.
+            currentStackFrame.waitingReporter = null;
+            thread.popStack();
         }
         argValues[inputName] = currentStackFrame.reported[inputName];
     }
 
     // Add any mutation to args (e.g., for procedures).
     var mutation = blockContainer.getMutation(currentBlockId);
-    if (mutation) {
+    if (mutation !== null) {
         argValues.mutation = mutation;
     }
 
