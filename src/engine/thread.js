@@ -13,15 +13,9 @@ var Thread = function (firstBlock) {
     /**
      * Stack for the thread. When the sequencer enters a control structure,
      * the block is pushed onto the stack so we know where to exit.
-     * @type {Array.<string>}
+     * @type {object}
      */
-    this.stack = [];
-
-    /**
-     * Stack frames for the thread. Store metadata for the executing blocks.
-     * @type {Array.<Object>}
-     */
-    this.stackFrames = [];
+    this.stack = null;
 
     /**
      * Status of the thread, one of three states (below)
@@ -90,45 +84,31 @@ Thread.STATUS_YIELD_TICK = 3;
  */
 Thread.STATUS_DONE = 4;
 
+var Stack = function (blockId, parentFrame) {
+    this.blockId = blockId;
+    // this.block = blockId;   // want to store 'actual' block
+    this.parentFrame = parentFrame;
+    this.warpMode = parentFrame !== null && parentFrame.warpMode;
+    this.reported = {};
+    this.params = {};           // Procedure parameters.
+    this.executionContext = {}; // A context passed to block implementations.
+};
+
+Stack.prototype.waitingReporter = null;
+// Stack.prototype.procedureCode = null;
+
 /**
  * Push stack and update stack frames appropriately.
  * @param {string} blockId Block ID to push to stack.
+ * @return {Stack} returns a Stack object (member of a linked list)
  */
 Thread.prototype.pushStack = function (blockId) {
-    this.stack.push(blockId);
+    // this.stack.push(blockId);
     // Push an empty stack frame, if we need one.
     // Might not, if we just popped the stack.
-    if (this.stack.length > this.stackFrames.length) {
+    // if (this.stack.length > this.stackFrames.length) {
         // Copy warp mode from any higher level.
-        var warpMode = false;
-        if (this.stackFrames.length > 0 && this.stackFrames[this.stackFrames.length - 1]) {
-            warpMode = this.stackFrames[this.stackFrames.length - 1].warpMode;
-        }
-        this.stackFrames.push({
-            isLoop: false, // Whether this level of the stack is a loop.
-            warpMode: warpMode, // Whether this level is in warp mode.
-            reported: {}, // Collects reported input values.
-            waitingReporter: null, // Name of waiting reporter.
-            params: {}, // Procedure parameters.
-            executionContext: {} // A context passed to block implementations.
-        });
-    }
-};
-
-/**
- * Reset the stack frame for use by the next block.
- * (avoids popping and re-pushing a new stack frame - keeps the warpmode the same
- * @param {string} blockId Block ID to push to stack.
- */
-Thread.prototype.reuseStackForNextBlock = function (blockId) {
-    this.stack[this.stack.length - 1] = blockId;
-    var frame = this.stackFrames[this.stackFrames.length - 1];
-    frame.isLoop = false;
-    // frame.warpMode = warpMode;   // warp mode stays the same when reusing the stack frame.
-    frame.reported = {};
-    frame.waitingReporter = null;
-    frame.params = {};
-    frame.executionContext = {};
+    return (this.stack = new Stack(blockId, this.stack));
 };
 
 /**
@@ -136,8 +116,24 @@ Thread.prototype.reuseStackForNextBlock = function (blockId) {
  * @return {string} Block ID popped from the stack.
  */
 Thread.prototype.popStack = function () {
-    this.stackFrames.pop();
-    return this.stack.pop();
+    var frame = this.stack;
+    // if (frame.procedureCode !== null) { // Free up recusive procedure check.
+    //     this.procStack.pop();
+    // }
+    this.stack = frame.parentFrame;
+    return frame.blockId;
+};
+
+/**
+ * Pop last block off the stack and its stack frame.
+ * @return {?object} The new last item on the stack frame.
+ */
+Thread.prototype.popStackGetFrame = function () {
+    var frame = this.stack;
+    // if (frame.procedureCode !== null) { // Free up recusive procedure check.
+    //     this.procStack.pop();
+    // }
+    return (this.stack = frame.parentFrame);
 };
 
 /**
@@ -154,7 +150,7 @@ Thread.prototype.stopThisScript = function () {
         blockID = this.peekStack();
     }
 
-    if (this.stack.length === 0) {
+    if (this.stack === null) {
         // Clean up!
         this.requestScriptGlowInFrame = false;
         this.status = Thread.STATUS_DONE;
@@ -166,7 +162,8 @@ Thread.prototype.stopThisScript = function () {
  * @return {?string} Block ID on top of stack.
  */
 Thread.prototype.peekStack = function () {
-    return this.stack.length > 0 ? this.stack[this.stack.length - 1] : null;
+    var stack = this.stack;
+    return stack !== null ? stack.blockId : null;
 };
 
 
@@ -175,15 +172,7 @@ Thread.prototype.peekStack = function () {
  * @return {?object} Last stack frame stored on this thread.
  */
 Thread.prototype.peekStackFrame = function () {
-    return this.stackFrames.length > 0 ? this.stackFrames[this.stackFrames.length - 1] : null;
-};
-
-/**
- * Get stack frame above the current top.
- * @return {?object} Second to last stack frame stored on this thread.
- */
-Thread.prototype.peekParentStackFrame = function () {
-    return this.stackFrames.length > 1 ? this.stackFrames[this.stackFrames.length - 2] : null;
+    return this.stack;
 };
 
 /**
@@ -191,10 +180,10 @@ Thread.prototype.peekParentStackFrame = function () {
  * @param {*} value Reported value to push.
  */
 Thread.prototype.pushReportedValue = function (value) {
-    var parentStackFrame = this.peekParentStackFrame();
-    if (parentStackFrame) {
-        var waitingReporter = parentStackFrame.waitingReporter;
-        parentStackFrame.reported[waitingReporter] = value;
+    var stack = this.stack;
+    var parentStackFrame = stack !== null ? stack.parentFrame : null;
+    if (parentStackFrame !== null) {
+        parentStackFrame.reported[parentStackFrame.waitingReporter] = value;
     }
 };
 
@@ -205,8 +194,8 @@ Thread.prototype.pushReportedValue = function (value) {
  * @param {*} value Value to set for parameter.
  */
 Thread.prototype.pushParam = function (paramName, value) {
-    var stackFrame = this.peekStackFrame();
-    stackFrame.params[paramName] = value;
+    // var stackFrame = this.peekStackFrame();
+    this.stack.params[paramName] = value;
 };
 
 /**
@@ -215,11 +204,13 @@ Thread.prototype.pushParam = function (paramName, value) {
  * @return {*} value Value for parameter.
  */
 Thread.prototype.getParam = function (paramName) {
-    for (var i = this.stackFrames.length - 1; i >= 0; i--) {
-        var frame = this.stackFrames[i];
-        if (frame.params.hasOwnProperty(paramName)) {
-            return frame.params[paramName];
+    var frame = this.stack;
+    while (frame !== null) {
+        var params = frame.params;
+        if (params.hasOwnProperty(paramName)) {
+            return params[paramName];
         }
+        frame = frame.parentFrame;
     }
     return null;
 };
@@ -229,7 +220,8 @@ Thread.prototype.getParam = function (paramName) {
  * @return {boolean} True if execution is at top of the stack.
  */
 Thread.prototype.atStackTop = function () {
-    return this.peekStack() === this.topBlock;
+    var stack = this.stack;
+    return stack !== null && stack.blockId === this.topBlock;
 };
 
 
@@ -239,8 +231,14 @@ Thread.prototype.atStackTop = function () {
  * where execution proceeds from one block to the next.
  */
 Thread.prototype.goToNextBlock = function () {
-    var nextBlockId = this.target.blocks.getNextBlock(this.peekStack());
-    this.reuseStackForNextBlock(nextBlockId);
+    var frame = this.stack;
+    frame.blockId = this.target.blocks.getNextBlock(frame.blockId);
+    frame.isLoop = false;
+    // frame.warpMode = warpMode;   // warp mode stays the same when reusing the stack frame.
+    frame.reported = {};
+    frame.waitingReporter = null;
+    frame.params = {};
+    frame.executionContext = {};
 };
 
 /**
@@ -251,14 +249,15 @@ Thread.prototype.goToNextBlock = function () {
  */
 Thread.prototype.isRecursiveCall = function (procedureCode) {
     var callCount = 5; // Max number of enclosing procedure calls to examine.
-    var sp = this.stack.length - 1;
-    for (var i = sp - 1; i >= 0; i--) {
-        var block = this.target.blocks.getBlock(this.stack[i]);
+    var frame = this.stack.parentFrame;
+    var targetBlocks = this.target.blocks;
+    while (callCount-- >= 0 && frame !== null) {
+        var block = targetBlocks.getBlock(frame.blockId);
         if (block.opcode === 'procedures_callnoreturn' &&
             block.mutation.proccode === procedureCode) {
             return true;
         }
-        if (--callCount < 0) return false;
+        frame = frame.parentFrame;
     }
     return false;
 };

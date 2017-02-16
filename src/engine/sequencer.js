@@ -48,7 +48,7 @@ Sequencer.prototype.stepThreads = function () {
         // Attempt to run each thread one time.
         for (var i = 0; i < this.runtime.threads.length; i++) {
             var activeThread = this.runtime.threads[i];
-            if (activeThread.stack.length === 0 ||
+            if (activeThread.stack === null ||
                 activeThread.status === Thread.STATUS_DONE) {
                 // Finished with this thread.
                 if (doneThreads.indexOf(activeThread) < 0) {
@@ -95,8 +95,9 @@ Sequencer.prototype.stepThread = function (thread) {
         // A "null block" - empty branch.
         thread.popStack();
     }
-    while (thread.peekStack()) {
-        var isWarpMode = thread.peekStackFrame().warpMode;
+    var stackFrame = thread.peekStackFrame();
+    while (stackFrame) {
+        var isWarpMode = stackFrame.warpMode;
         if (isWarpMode && !thread.warpTimer) {
             // Initialize warp-mode timer if it hasn't been already.
             // This will start counting the thread toward `Sequencer.WARP_TIME`.
@@ -105,7 +106,7 @@ Sequencer.prototype.stepThread = function (thread) {
         }
         // Execute the current block.
         // Save the current block ID to notice if we did control flow.
-        currentBlockId = thread.peekStack();
+        currentBlockId = stackFrame.blockId;
         execute(this, thread);
         thread.blockGlowInFrame = currentBlockId;
         // If the thread has yielded or is waiting, yield to other threads.
@@ -124,21 +125,32 @@ Sequencer.prototype.stepThread = function (thread) {
             // thread.status to Thread.STATUS_RUNNING.
             return;
         }
+
         // If no control flow has happened, switch to next block.
-        if (thread.peekStack() === currentBlockId) {
+        stackFrame = thread.peekStackFrame();
+
+        if (stackFrame === null) {  // Thread must have terminated!
+            // No more stack to run!
+            thread.status = Thread.STATUS_DONE;
+            return;
+        }
+
+        if (stackFrame.blockId === currentBlockId) {
             thread.goToNextBlock();
         }
+
         // If no next block has been found at this point, look on the stack.
         while (!thread.peekStack()) {
-            thread.popStack();
+            stackFrame = thread.popStackGetFrame();
 
-            if (thread.stack.length === 0) {
+            // stackFrame = thread.peekStackFrame();
+
+            if (stackFrame === null) {
                 // No more stack to run!
                 thread.status = Thread.STATUS_DONE;
                 return;
             }
 
-            var stackFrame = thread.peekStackFrame();
             isWarpMode = stackFrame.warpMode;
 
             if (stackFrame.isLoop) {
@@ -156,7 +168,7 @@ Sequencer.prototype.stepThread = function (thread) {
                     // since loops need to be re-executed.
                     continue;
                 }
-            } else if (stackFrame.waitingReporter) {
+            } else if (stackFrame.waitingReporter !== null) {
                 // This level of the stack was waiting for a value.
                 // This means a reporter has just returned - so don't go
                 // to the next block for this level of the stack.
@@ -236,8 +248,8 @@ Sequencer.prototype.stepToProcedure = function (thread, procedureCode) {
  * @param {!Thread} thread Thread object to retire.
  */
 Sequencer.prototype.retireThread = function (thread) {
-    thread.stack = [];
-    thread.stackFrame = [];
+    thread.stack = null;
+    // thread.stackFrame = null;
     thread.requestScriptGlowInFrame = false;
     thread.status = Thread.STATUS_DONE;
 };
