@@ -43,14 +43,15 @@ class Sequencer {
         // 1. We must have threads in the list, and some must be active.
         // 2. Time elapsed must be less than WORK_TIME.
         // 3. Either turbo mode, or no redraw has been requested by a primitive.
-        while (this.runtime.threads.length > 0 &&
+        const threads = this.runtime.threads;
+        while (threads.length > 0 &&
                numActiveThreads > 0 &&
                this.timer.timeElapsed() < WORK_TIME &&
                (this.runtime.turboMode || !this.runtime.redrawRequested)) {
             numActiveThreads = 0;
             // Attempt to run each thread one time.
-            for (let i = 0; i < this.runtime.threads.length; i++) {
-                const activeThread = this.runtime.threads[i];
+            for (let i = 0; i < threads.length; i++) {
+                const activeThread = threads[i];
                 if (activeThread.stack.length === 0 ||
                     activeThread.status === Thread.STATUS_DONE) {
                     // Finished with this thread.
@@ -82,7 +83,7 @@ class Sequencer {
             ranFirstTick = true;
         }
         // Filter inactive threads from `this.runtime.threads`.
-        this.runtime.threads = this.runtime.threads.filter(thread => {
+        this.runtime.threads = threads.filter(thread => {
             if (doneThreads.indexOf(thread) > -1) {
                 return false;
             }

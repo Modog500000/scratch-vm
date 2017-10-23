@@ -1,3 +1,5 @@
+const StackFrame = require('./stackFrame');
+
 /**
  * A thread is a running stack context and all the metadata needed.
  * @param {?string} firstBlock First block to execute in the thread.
@@ -112,23 +114,21 @@ class Thread {
      * @param {string} blockId Block ID to push to stack.
      */
     pushStack (blockId) {
-        this.stack.push(blockId);
+        const stack = this.stack;
+        stack.push(blockId);
         // Push an empty stack frame, if we need one.
         // Might not, if we just popped the stack.
-        if (this.stack.length > this.stackFrames.length) {
+        const stackFrame = this.stackFrames;
+        if (stack.length > stackFrame.length) {
             // Copy warp mode from any higher level.
             let warpMode = false;
-            if (this.stackFrames.length > 0 && this.stackFrames[this.stackFrames.length - 1]) {
-                warpMode = this.stackFrames[this.stackFrames.length - 1].warpMode;
+            if (stackFrame.length > 0) {
+                const peek = stackFrame[stackFrame.length - 1];
+                if (peek) {
+                    warpMode = peek.warpMode;
+                }
             }
-            this.stackFrames.push({
-                isLoop: false, // Whether this level of the stack is a loop.
-                warpMode: warpMode, // Whether this level is in warp mode.
-                reported: {}, // Collects reported input values.
-                waitingReporter: null, // Name of waiting reporter.
-                params: {}, // Procedure parameters.
-                executionContext: {} // A context passed to block implementations.
-            });
+            stackFrame.push(new StackFrame(warpMode));
         }
     }
 
@@ -209,9 +209,8 @@ class Thread {
      */
     pushReportedValue (value) {
         const parentStackFrame = this.peekParentStackFrame();
-        if (parentStackFrame) {
-            const waitingReporter = parentStackFrame.waitingReporter;
-            parentStackFrame.reported[waitingReporter] = value;
+        if (parentStackFrame !== null) {
+            parentStackFrame.reported[parentStackFrame.waitingReporter] = value;
         }
     }
 
@@ -232,10 +231,11 @@ class Thread {
      * @return {*} value Value for parameter.
      */
     getParam (paramName) {
-        for (let i = this.stackFrames.length - 1; i >= 0; i--) {
-            const frame = this.stackFrames[i];
-            if (frame.params.hasOwnProperty(paramName)) {
-                return frame.params[paramName];
+        const stackFrame = this.stackFrames;
+        for (let i = stackFrame.length - 1; i >= 0; i--) {
+            const params = stackFrame[i].params;
+            if (params.hasOwnProperty(paramName)) {
+                return params[paramName];
             }
         }
         return null;

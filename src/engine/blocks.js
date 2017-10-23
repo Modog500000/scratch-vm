@@ -25,6 +25,10 @@ class Blocks {
          * @type {Array.<String>}
          */
         this._scripts = [];
+
+        this._procedureParamNames = {};
+        this._procedureDefinitions = {};
+        this._inputs = {};
     }
 
     /**
@@ -105,10 +109,17 @@ class Blocks {
     /**
      * Get all non-branch inputs for a block.
      * @param {?object} block the block to query.
-     * @return {!object} All non-branch inputs and their associated blocks.
+     * @return {?object} All non-branch inputs and their associated blocks.
      */
     getInputs (block) {
         if (typeof block === 'undefined') return null;
+        // const id = block.id;
+        // if (this._inputs.hasOwnProperty(id)) {
+        //     return this._inputs[id];
+        // }
+        if (block.hasOwnProperty('_inputs')) {
+            return block._inputs;
+        }
         const inputs = {};
         for (const input in block.inputs) {
             // Ignore blocks prefixed with branch prefix.
@@ -117,6 +128,8 @@ class Blocks {
                 inputs[input] = block.inputs[input];
             }
         }
+        // this._inputs[id] = inputs;
+        block._inputs = inputs;
         return inputs;
     }
 
@@ -149,6 +162,9 @@ class Blocks {
      * @return {?string} ID of procedure definition.
      */
     getProcedureDefinition (name) {
+        if (this._procedureDefinitions.hasOwnProperty(name)) {
+            return this._procedureDefinitions[name];
+        }
         for (const id in this._blocks) {
             if (!this._blocks.hasOwnProperty(id)) continue;
             const block = this._blocks[id];
@@ -156,10 +172,11 @@ class Blocks {
                 block.opcode === 'procedures_defreturn') {
                 const internal = this._getCustomBlockInternal(block);
                 if (internal && internal.mutation.proccode === name) {
-                    return id; // The outer define block id
+                    return this._procedureDefinitions[name] = id; // The outer define block id
                 }
             }
         }
+        this._procedureDefinitions[name] = null; // This is not the same as undefined
         return null;
     }
 
@@ -169,14 +186,18 @@ class Blocks {
      * @return {?string} ID of procedure definition.
      */
     getProcedureParamNames (name) {
+        if (this._procedureParamNames.hasOwnProperty(name)) {
+            return this._procedureParamNames[name];
+        }
         for (const id in this._blocks) {
             if (!this._blocks.hasOwnProperty(id)) continue;
             const block = this._blocks[id];
             if (block.opcode === 'procedures_callnoreturn_internal' &&
                 block.mutation.proccode === name) {
-                return JSON.parse(block.mutation.argumentnames);
+                return this._procedureParamNames[name] = JSON.parse(block.mutation.argumentnames);
             }
         }
+        this._procedureParamNames[name] = null; // This is not the same as undefined
         return null;
     }
 

@@ -19,6 +19,7 @@ class Timer {
          * Updated when calling `timer.start`.
          */
         this.startTime = 0;
+        this.myNowObj = Timer.nowObj;
     }
 
     /**
@@ -59,7 +60,7 @@ class Timer {
      * @returns {number} ms elapsed since 1 January 1970 00:00:00 UTC.
      */
     time () {
-        return Timer.nowObj.now();
+        return this.myNowObj.now();
     }
 
     /**
@@ -70,7 +71,7 @@ class Timer {
      * @returns {number} ms-scale accurate time relative to other relative times.
      */
     relativeTime () {
-        return Timer.nowObj.now();
+        return this.myNowObj.now();
     }
 
     /**
@@ -78,11 +79,11 @@ class Timer {
      * at the most accurate precision possible.
      */
     start () {
-        this.startTime = Timer.nowObj.now();
+        this.startTime = this.myNowObj.now();
     }
 
     timeElapsed () {
-        return Timer.nowObj.now() - this.startTime;
+        return this.myNowObj.now() - this.startTime;
     }
 }
 

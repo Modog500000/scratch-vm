@@ -1,6 +1,7 @@
 const log = require('../util/log');
 const Thread = require('./thread');
 const {Map} = require('immutable');
+const ExecuteRecord = require('./executeRecord');
 
 /**
  * Utility function to determine if a value is a Promise.
@@ -9,6 +10,143 @@ const {Map} = require('immutable');
  */
 const isPromise = function (value) {
     return value && value.then && typeof value.then === 'function';
+};
+
+/**
+ * Handle any reported value from the primitive, either directly returned
+ * or after a promise resolves.
+ * @param {*} resolvedValue Value eventually returned from the primitive.
+ */
+    // @todo move this to callback attached to the thread when we have performance
+    // metrics (dd)
+const handleReport = function (resolvedValue, thread, runtime, opcode, sequencer, currentBlockId, isHat) {
+    thread.pushReportedValue(resolvedValue);
+    if (isHat) {
+        // Hat predicate was evaluated.
+        if (runtime.getIsEdgeActivatedHat(opcode)) {
+            // If this is an edge-activated hat, only proceed if
+            // the value is true and used to be false, or the stack was activated
+            // explicitly via stack click
+            if (!thread.stackClick) {
+                const oldEdgeValue = runtime.updateEdgeActivatedValue(
+                    currentBlockId,
+                    resolvedValue
+                );
+                const edgeWasActivated = !oldEdgeValue && resolvedValue;
+                if (!edgeWasActivated) {
+                    sequencer.retireThread(thread);
+                }
+            }
+        } else if (!resolvedValue) {
+            // Not an edge-activated hat: retire the thread
+            // if predicate was false.
+            sequencer.retireThread(thread);
+        }
+    } else {
+        // In a non-hat, report the value visually if necessary if
+        // at the top of the thread stack.
+        if (typeof resolvedValue !== 'undefined' && thread.atStackTop()) {
+            if (thread.stackClick) {
+                runtime.visualReport(currentBlockId, resolvedValue);
+            }
+            if (thread.updateMonitor) {
+                runtime.requestUpdateMonitor(Map({
+                    id: currentBlockId,
+                    value: String(resolvedValue)
+                }));
+            }
+        }
+        // Finished any yields.
+        thread.status = Thread.STATUS_RUNNING;
+    }
+};
+
+const extractArgInputs = function (fields) {
+    const argValues = {};
+
+    // Add all fields on this block to the argValues.
+    for (const fieldName in fields) {
+        if (!fields.hasOwnProperty(fieldName)) continue;
+        if (fieldName === 'VARIABLE') {
+            argValues[fieldName] = fields[fieldName].id;
+        } else {
+            argValues[fieldName] = fields[fieldName].value;
+        }
+    }
+    return argValues;
+};
+
+const recursivelyEvaluateInputs = function (inputs, currentStackFrame, thread, sequencer, argValues) {
+    // Recursively evaluate input blocks.
+    const reported = currentStackFrame.reported;
+    for (const inputName in inputs) {
+        if (!inputs.hasOwnProperty(inputName)) continue;
+        // Do not evaluate the internal custom command block within definition
+        if (inputName === 'custom_block') continue;
+        const input = inputs[inputName];
+        const inputBlockId = input.block;
+        // Is there no value for this input waiting in the stack frame?
+        if (inputBlockId !== null && typeof reported[inputName] === 'undefined') {
+            // If there's not, we need to evaluate the block.
+            // Push to the stack to evaluate the reporter block.
+            thread.pushStack(inputBlockId);
+            // Save name of input for `Thread.pushReportedValue`.
+            currentStackFrame.waitingReporter = inputName;
+            // Actually execute the block.
+            execute(sequencer, thread);
+            if (thread.status === Thread.STATUS_PROMISE_WAIT) {
+                return true;
+            }
+
+            // Execution returned immediately,
+            // and presumably a value was reported, so pop the stack.
+            currentStackFrame.waitingReporter = null;
+            thread.popStack();
+        }
+        argValues[inputName] = reported[inputName];
+    }
+    return false;
+};
+
+const makePromise = function (thread, primitiveReportedValue, runtime, opcode, sequencer, currentBlockId, isHat) {
+    if (thread.status === Thread.STATUS_RUNNING) {
+        // Primitive returned a promise; automatically yield thread.
+        thread.status = Thread.STATUS_PROMISE_WAIT;
+    }
+    // Promise handlers
+    primitiveReportedValue.then(resolvedValue => {
+        handleReport(resolvedValue, thread, runtime, opcode, sequencer, currentBlockId, isHat);
+        if (typeof resolvedValue === 'undefined') {
+            let stackFrame;
+            let nextBlockId;
+            do {
+                // In the case that the promise is the last block in the current thread stack
+                // We need to pop out repeatedly until we find the next block.
+                const popped = thread.popStack();
+                if (popped === null) {
+                    return;
+                }
+                nextBlockId = thread.target.blocks.getNextBlock(popped);
+                if (nextBlockId !== null) {
+                    // A next block exists so break out this loop
+                    break;
+                }
+                // Investigate the next block and if not in a loop,
+                // then repeat and pop the next item off the stack frame
+                stackFrame = thread.peekStackFrame();
+            } while (stackFrame !== null && !stackFrame.isLoop);
+
+            thread.pushStack(nextBlockId);
+        } else {
+            thread.popStack();
+        }
+    }, rejectionReason => {
+        // Promise rejected: the primitive had some error.
+        // Log it and proceed.
+        log.warn('Primitive rejected promise: ', rejectionReason);
+        thread.status = Thread.STATUS_RUNNING;
+        thread.popStack();
+    });
 };
 
 /**
@@ -31,12 +169,8 @@ const execute = function (sequencer, thread) {
     const currentBlockId = thread.peekStack();
     const currentStackFrame = thread.peekStackFrame();
 
-    let blockContainer;
-    if (thread.updateMonitor) {
-        blockContainer = runtime.monitorBlocks;
-    } else {
-        blockContainer = target.blocks;
-    }
+    let blockContainer = thread.updateMonitor ? runtime.monitorBlocks : target.blocks;
+
     let block = blockContainer.getBlock(currentBlockId);
     if (typeof block === 'undefined') {
         blockContainer = runtime.flyoutBlocks;
@@ -56,59 +190,10 @@ const execute = function (sequencer, thread) {
     const isHat = runtime.getIsHat(opcode);
 
 
-    if (!opcode) {
+    if (opcode === null) {
         log.warn(`Could not get opcode for block: ${currentBlockId}`);
         return;
     }
-
-    /**
-     * Handle any reported value from the primitive, either directly returned
-     * or after a promise resolves.
-     * @param {*} resolvedValue Value eventually returned from the primitive.
-     */
-    // @todo move this to callback attached to the thread when we have performance
-    // metrics (dd)
-    const handleReport = function (resolvedValue) {
-        thread.pushReportedValue(resolvedValue);
-        if (isHat) {
-            // Hat predicate was evaluated.
-            if (runtime.getIsEdgeActivatedHat(opcode)) {
-                // If this is an edge-activated hat, only proceed if
-                // the value is true and used to be false, or the stack was activated
-                // explicitly via stack click
-                if (!thread.stackClick) {
-                    const oldEdgeValue = runtime.updateEdgeActivatedValue(
-                        currentBlockId,
-                        resolvedValue
-                    );
-                    const edgeWasActivated = !oldEdgeValue && resolvedValue;
-                    if (!edgeWasActivated) {
-                        sequencer.retireThread(thread);
-                    }
-                }
-            } else if (!resolvedValue) {
-                // Not an edge-activated hat: retire the thread
-                // if predicate was false.
-                sequencer.retireThread(thread);
-            }
-        } else {
-            // In a non-hat, report the value visually if necessary if
-            // at the top of the thread stack.
-            if (typeof resolvedValue !== 'undefined' && thread.atStackTop()) {
-                if (thread.stackClick) {
-                    runtime.visualReport(currentBlockId, resolvedValue);
-                }
-                if (thread.updateMonitor) {
-                    runtime.requestUpdateMonitor(Map({
-                        id: currentBlockId,
-                        value: String(resolvedValue)
-                    }));
-                }
-            }
-            // Finished any yields.
-            thread.status = Thread.STATUS_RUNNING;
-        }
-    };
 
     // Hats and single-field shadows are implemented slightly differently
     // from regular blocks.
@@ -124,7 +209,7 @@ const execute = function (sequencer, thread) {
         const keys = Object.keys(fields);
         if (keys.length === 1 && Object.keys(inputs).length === 0) {
             // One field and no inputs - treat as arg.
-            handleReport(fields[keys[0]].value);
+            handleReport(fields[keys[0]].value, thread, runtime, opcode, sequencer, currentBlockId, isHat);
         } else {
             log.warn(`Could not get implementation for opcode: ${opcode}`);
         }
@@ -133,44 +218,10 @@ const execute = function (sequencer, thread) {
     }
 
     // Generate values for arguments (inputs).
-    const argValues = {};
+    const argValues = extractArgInputs(fields);
 
-    // Add all fields on this block to the argValues.
-    for (const fieldName in fields) {
-        if (!fields.hasOwnProperty(fieldName)) continue;
-        if (fieldName === 'VARIABLE') {
-            argValues[fieldName] = fields[fieldName].id;
-        } else {
-            argValues[fieldName] = fields[fieldName].value;
-        }
-    }
-
-    // Recursively evaluate input blocks.
-    for (const inputName in inputs) {
-        if (!inputs.hasOwnProperty(inputName)) continue;
-        // Do not evaluate the internal custom command block within definition
-        if (inputName === 'custom_block') continue;
-        const input = inputs[inputName];
-        const inputBlockId = input.block;
-        // Is there no value for this input waiting in the stack frame?
-        if (inputBlockId !== null && typeof currentStackFrame.reported[inputName] === 'undefined') {
-            // If there's not, we need to evaluate the block.
-            // Push to the stack to evaluate the reporter block.
-            thread.pushStack(inputBlockId);
-            // Save name of input for `Thread.pushReportedValue`.
-            currentStackFrame.waitingReporter = inputName;
-            // Actually execute the block.
-            execute(sequencer, thread);
-            if (thread.status === Thread.STATUS_PROMISE_WAIT) {
-                return;
-            }
-
-            // Execution returned immediately,
-            // and presumably a value was reported, so pop the stack.
-            currentStackFrame.waitingReporter = null;
-            thread.popStack();
-        }
-        argValues[inputName] = currentStackFrame.reported[inputName];
+    if (recursivelyEvaluateInputs(inputs, currentStackFrame, thread, sequencer, argValues)) {
+        return;
     }
 
     // Add any mutation to args (e.g., for procedures).
@@ -185,50 +236,10 @@ const execute = function (sequencer, thread) {
     // (e.g., on return from a branch) gets fresh inputs.
     currentStackFrame.reported = {};
 
-    let primitiveReportedValue = null;
-    primitiveReportedValue = blockFunction(argValues, {
-        stackFrame: currentStackFrame.executionContext,
-        target: target,
-        yield: function () {
-            thread.status = Thread.STATUS_YIELD;
-        },
-        startBranch: function (branchNum, isLoop) {
-            sequencer.stepToBranch(thread, branchNum, isLoop);
-        },
-        stopAll: function () {
-            runtime.stopAll();
-        },
-        stopOtherTargetThreads: function () {
-            runtime.stopForTarget(target, thread);
-        },
-        stopThisScript: function () {
-            thread.stopThisScript();
-        },
-        startProcedure: function (procedureCode) {
-            sequencer.stepToProcedure(thread, procedureCode);
-        },
-        getProcedureParamNames: function (procedureCode) {
-            return blockContainer.getProcedureParamNames(procedureCode);
-        },
-        pushParam: function (paramName, paramValue) {
-            thread.pushParam(paramName, paramValue);
-        },
-        getParam: function (paramName) {
-            return thread.getParam(paramName);
-        },
-        startHats: function (requestedHat, optMatchFields, optTarget) {
-            return (
-                runtime.startHats(requestedHat, optMatchFields, optTarget)
-            );
-        },
-        ioQuery: function (device, func, args) {
-            // Find the I/O device and execute the query/function call.
-            if (runtime.ioDevices[device] && runtime.ioDevices[device][func]) {
-                const devObject = runtime.ioDevices[device];
-                return devObject[func].apply(devObject, args);
-            }
-        }
-    });
+    // let primitiveReportedValue = blockFunction(argValues,
+    //      new ExecuteRecord(currentStackFrame.executionContext, target, thread, sequencer, runtime, blockContainer));
+    const primitiveReportedValue = blockFunction(argValues,
+        new ExecuteRecord(currentStackFrame.executionContext, thread, sequencer, blockContainer));
 
     if (typeof primitiveReportedValue === 'undefined') {
         // No value reported - potentially a command block.
@@ -238,46 +249,9 @@ const execute = function (sequencer, thread) {
 
     // If it's a promise, wait until promise resolves.
     if (isPromise(primitiveReportedValue)) {
-        if (thread.status === Thread.STATUS_RUNNING) {
-            // Primitive returned a promise; automatically yield thread.
-            thread.status = Thread.STATUS_PROMISE_WAIT;
-        }
-        // Promise handlers
-        primitiveReportedValue.then(resolvedValue => {
-            handleReport(resolvedValue);
-            if (typeof resolvedValue === 'undefined') {
-                let stackFrame;
-                let nextBlockId;
-                do {
-                    // In the case that the promise is the last block in the current thread stack
-                    // We need to pop out repeatedly until we find the next block.
-                    const popped = thread.popStack();
-                    if (popped === null) {
-                        return;
-                    }
-                    nextBlockId = thread.target.blocks.getNextBlock(popped);
-                    if (nextBlockId !== null) {
-                        // A next block exists so break out this loop
-                        break;
-                    }
-                    // Investigate the next block and if not in a loop,
-                    // then repeat and pop the next item off the stack frame
-                    stackFrame = thread.peekStackFrame();
-                } while (stackFrame !== null && !stackFrame.isLoop);
-
-                thread.pushStack(nextBlockId);
-            } else {
-                thread.popStack();
-            }
-        }, rejectionReason => {
-            // Promise rejected: the primitive had some error.
-            // Log it and proceed.
-            log.warn('Primitive rejected promise: ', rejectionReason);
-            thread.status = Thread.STATUS_RUNNING;
-            thread.popStack();
-        });
+        makePromise(thread, primitiveReportedValue, runtime, opcode, sequencer, currentBlockId, isHat);
     } else if (thread.status === Thread.STATUS_RUNNING) {
-        handleReport(primitiveReportedValue);
+        handleReport(primitiveReportedValue, thread, runtime, opcode, sequencer, currentBlockId);
     }
 };
 
