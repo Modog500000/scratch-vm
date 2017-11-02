@@ -31,7 +31,8 @@ jobs:
           condition: $RELEASE_BRANCHES =~ $TRAVIS_BRANCH
         skip_cleanup: true
 #        script: npm run --silent deploy -- -x -r $GH_PAGES_REPO
-        script: npm run deploy -- -x -e $TRAVIS_BRANCH -r https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git
+#        script: npm run deploy -- -x -e $TRAVIS_BRANCH -r https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git
+        script: npm run deploy -- -x -r https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git
       - provider: npm
         "on":
           all_branches: true
