@@ -189,7 +189,7 @@ class Thread {
 
     /**
      * Get top stack frame.
-     * @return {?object} Last stack frame stored on this thread.
+     * @return {?StackFrame} Last stack frame stored on this thread.
      */
     peekStackFrame () {
         return this.stackFrames.length > 0 ? this.stackFrames[this.stackFrames.length - 1] : null;
@@ -197,7 +197,7 @@ class Thread {
 
     /**
      * Get stack frame above the current top.
-     * @return {?object} Second to last stack frame stored on this thread.
+     * @return {?StackFrame} Second to last stack frame stored on this thread.
      */
     peekParentStackFrame () {
         return this.stackFrames.length > 1 ? this.stackFrames[this.stackFrames.length - 2] : null;

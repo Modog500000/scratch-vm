@@ -648,7 +648,7 @@ class Runtime extends EventEmitter {
 
     /**
      * Retrieve the function associated with the given opcode.
-     * @param {!string} opcode The opcode to look up.
+     * @param {?string} opcode The opcode to look up.
      * @return {Function} The function which implements the opcode.
      */
     getOpcodeFunction (opcode) {
@@ -657,7 +657,7 @@ class Runtime extends EventEmitter {
 
     /**
      * Return whether an opcode represents a hat block.
-     * @param {!string} opcode The opcode to look up.
+     * @param {?string} opcode The opcode to look up.
      * @return {boolean} True if the op is known to be a hat.
      */
     getIsHat (opcode) {

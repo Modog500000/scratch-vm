@@ -3,6 +3,8 @@ const Thread = require('./thread');
 const {Map} = require('immutable');
 const ExecuteRecord = require('./executeRecord');
 
+let execute = null;
+
 /**
  * Utility function to determine if a value is a Promise.
  * @param {*} value Value to check for a Promise.
@@ -16,9 +18,13 @@ const isPromise = function (value) {
  * Handle any reported value from the primitive, either directly returned
  * or after a promise resolves.
  * @param {*} resolvedValue Value eventually returned from the primitive.
+ * @param {Thread} thread the thread
+ * @param {Runtime} runtime the runtime
+ * @param {string} opcode the opcode
+ * @param {Sequencer} sequencer the sequencer
+ * @param {string} currentBlockId the current blockid
+ * @param {boolean} isHat is a hat block?
  */
-    // @todo move this to callback attached to the thread when we have performance
-    // metrics (dd)
 const handleReport = function (resolvedValue, thread, runtime, opcode, sequencer, currentBlockId, isHat) {
     thread.pushReportedValue(resolvedValue);
     if (isHat) {
@@ -61,6 +67,11 @@ const handleReport = function (resolvedValue, thread, runtime, opcode, sequencer
     }
 };
 
+/**
+ * Extract Arg Inputs
+ * @param {{}} fields the fields to be extracted
+ * @return {{}} field name value pairs
+ */
 const extractArgInputs = function (fields) {
     const argValues = {};
 
@@ -76,6 +87,15 @@ const extractArgInputs = function (fields) {
     return argValues;
 };
 
+/**
+ * Recursively Evaluate Inputs
+ * @param {{}} inputs the inputs
+ * @param {StackFrame} currentStackFrame the current stack frame
+ * @param {Thread} thread the thread
+ * @param {Sequencer} sequencer the sequencer
+ * @param {{}} argValues the arg values
+ * @return {boolean} true if status promise wait
+ */
 const recursivelyEvaluateInputs = function (inputs, currentStackFrame, thread, sequencer, argValues) {
     // Recursively evaluate input blocks.
     const reported = currentStackFrame.reported;
@@ -154,7 +174,7 @@ const makePromise = function (thread, primitiveReportedValue, runtime, opcode, s
  * @param {!Sequencer} sequencer Which sequencer is executing.
  * @param {!Thread} thread Thread which to read and execute.
  */
-const execute = function (sequencer, thread) {
+execute = function (sequencer, thread) {
     const runtime = sequencer.runtime;
     const target = thread.target;
 
@@ -251,7 +271,7 @@ const execute = function (sequencer, thread) {
     if (isPromise(primitiveReportedValue)) {
         makePromise(thread, primitiveReportedValue, runtime, opcode, sequencer, currentBlockId, isHat);
     } else if (thread.status === Thread.STATUS_RUNNING) {
-        handleReport(primitiveReportedValue, thread, runtime, opcode, sequencer, currentBlockId);
+        handleReport(primitiveReportedValue, thread, runtime, opcode, sequencer, currentBlockId, isHat);
     }
 };
 

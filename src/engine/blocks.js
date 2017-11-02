@@ -42,7 +42,7 @@ class Blocks {
 
     /**
      * Provide an object with metadata for the requested block ID.
-     * @param {!string} blockId ID of block we have stored.
+     * @param {?string} blockId ID of block we have stored.
      * @return {?object} Metadata about the block, if it exists.
      */
     getBlock (blockId) {
