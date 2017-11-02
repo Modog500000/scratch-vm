@@ -172,7 +172,8 @@ class Blocks {
                 block.opcode === 'procedures_defreturn') {
                 const internal = this._getCustomBlockInternal(block);
                 if (internal && internal.mutation.proccode === name) {
-                    return this._procedureDefinitions[name] = id; // The outer define block id
+                    this._procedureDefinitions[name] = id; // The outer define block id
+                    return id;
                 }
             }
         }
@@ -194,7 +195,9 @@ class Blocks {
             const block = this._blocks[id];
             if (block.opcode === 'procedures_callnoreturn_internal' &&
                 block.mutation.proccode === name) {
-                return this._procedureParamNames[name] = JSON.parse(block.mutation.argumentnames);
+                const ppn = JSON.parse(block.mutation.argumentnames);
+                this._procedureParamNames[name] = ppn;
+                return ppn;
             }
         }
         this._procedureParamNames[name] = null; // This is not the same as undefined
