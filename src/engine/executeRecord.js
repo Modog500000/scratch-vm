@@ -1,7 +1,7 @@
 const Thread = require('./thread');
 
 class ExecuteRecord {
-    constructor(stackFrame, thread, sequencer, blockContainer) {
+    constructor (stackFrame, thread, sequencer, blockContainer) {
     // constructor(stackFrame, target, thread, sequencer, runtime, blockContainer) {
         this.stackFrame = stackFrame;
         // this.target = target;
@@ -23,55 +23,55 @@ class ExecuteRecord {
         return this.thread.target;
     }
 
-    yield() {
+    yield () {
         this.thread.status = Thread.STATUS_YIELD;
-    };
+    }
 
-    startBranch(branchNum, isLoop) {
+    startBranch (branchNum, isLoop) {
         this.sequencer.stepToBranch(this.thread, branchNum, isLoop);
-    };
+    }
 
-    stopAll() {
+    stopAll () {
         this.runtime.stopAll();
-    };
+    }
 
-    stopOtherTargetThreads() {
+    stopOtherTargetThreads () {
         this.runtime.stopForTarget(this.target, this.thread);
-    };
+    }
 
-    stopThisScript() {
+    stopThisScript () {
         this.thread.stopThisScript();
-    };
+    }
 
-    startProcedure(procedureCode) {
+    startProcedure (procedureCode) {
         this.sequencer.stepToProcedure(this.thread, procedureCode);
-    };
+    }
 
-    getProcedureParamNames(procedureCode) {
+    getProcedureParamNames (procedureCode) {
         return this.blockContainer.getProcedureParamNames(procedureCode);
-    };
+    }
 
-    pushParam(paramName, paramValue) {
+    pushParam (paramName, paramValue) {
         this.thread.pushParam(paramName, paramValue);
-    };
+    }
 
-    getParam(paramName) {
+    getParam (paramName) {
         return this.thread.getParam(paramName);
-    };
+    }
 
-    startHats(requestedHat, optMatchFields, optTarget) {
+    startHats (requestedHat, optMatchFields, optTarget) {
         return (
             this.runtime.startHats(requestedHat, optMatchFields, optTarget)
         );
-    };
+    }
 
-    ioQuery(device, func, args) {
+    ioQuery (device, func, args) {
         // Find the I/O device and execute the query/function call.
         if (this.runtime.ioDevices[device] && this.runtime.ioDevices[device][func]) {
             const devObject = this.runtime.ioDevices[device];
             return devObject[func].apply(devObject, args);
         }
-    };
+    }
 }
 
 module.exports = ExecuteRecord;
