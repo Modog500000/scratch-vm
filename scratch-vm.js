@@ -22648,7 +22648,7 @@ var Runtime = function (_EventEmitter) {
     }, {
         key: 'isActiveThread',
         value: function isActiveThread(thread) {
-            return this.threads.indexOf(thread) > -1;
+            return thread.stack.length > 0 && this.threads.indexOf(thread) > -1;
         }
 
         /**
