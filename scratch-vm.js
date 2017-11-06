@@ -18484,6 +18484,13 @@ var RenderedTarget = __webpack_require__(20);
 var log = __webpack_require__(2);
 
 /**
+ * Icon svg to be displayed at the left edge of each extension block, encoded as a data URI.
+ * @type {string}
+ */
+// eslint-disable-next-line max-len
+var iconURI = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGl0bGU+cGVuLWljb248L3RpdGxlPjxnIHN0cm9rZT0iIzU3NUU3NSIgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik04Ljc1MyAzNC42MDJsLTQuMjUgMS43OCAxLjc4My00LjIzN2MxLjIxOC0yLjg5MiAyLjkwNy01LjQyMyA1LjAzLTcuNTM4TDMxLjA2NiA0LjkzYy44NDYtLjg0MiAyLjY1LS40MSA0LjAzMi45NjcgMS4zOCAxLjM3NSAxLjgxNiAzLjE3My45NyA0LjAxNUwxNi4zMTggMjkuNTljLTIuMTIzIDIuMTE2LTQuNjY0IDMuOC03LjU2NSA1LjAxMiIgZmlsbD0iI0ZGRiIvPjxwYXRoIGQ9Ik0yOS40MSA2LjExcy00LjQ1LTIuMzc4LTguMjAyIDUuNzcyYy0xLjczNCAzLjc2Ni00LjM1IDEuNTQ2LTQuMzUgMS41NDYiLz48cGF0aCBkPSJNMzYuNDIgOC44MjVjMCAuNDYzLS4xNC44NzMtLjQzMiAxLjE2NGwtOS4zMzUgOS4zYy4yODItLjI5LjQxLS42NjguNDEtMS4xMiAwLS44NzQtLjUwNy0xLjk2My0xLjQwNi0yLjg2OC0xLjM2Mi0xLjM1OC0zLjE0Ny0xLjgtNC4wMDItLjk5TDMwLjk5IDUuMDFjLjg0NC0uODQgMi42NS0uNDEgNC4wMzUuOTYuODk4LjkwNCAxLjM5NiAxLjk4MiAxLjM5NiAyLjg1NU0xMC41MTUgMzMuNzc0Yy0uNTczLjMwMi0xLjE1Ny41Ny0xLjc2NC44M0w0LjUgMzYuMzgybDEuNzg2LTQuMjM1Yy4yNTgtLjYwNC41My0xLjE4Ni44MzMtMS43NTcuNjkuMTgzIDEuNDQ4LjYyNSAyLjEwOCAxLjI4Mi42Ni42NTggMS4xMDIgMS40MTIgMS4yODcgMi4xMDIiIGZpbGw9IiM0Qzk3RkYiLz48cGF0aCBkPSJNMzYuNDk4IDguNzQ4YzAgLjQ2NC0uMTQuODc0LS40MzMgMS4xNjVsLTE5Ljc0MiAxOS42OGMtMi4xMyAyLjExLTQuNjczIDMuNzkzLTcuNTcyIDUuMDFMNC41IDM2LjM4bC45NzQtMi4zMTYgMS45MjUtLjgwOGMyLjg5OC0xLjIxOCA1LjQ0LTIuOSA3LjU3LTUuMDFsMTkuNzQzLTE5LjY4Yy4yOTItLjI5Mi40MzItLjcwMi40MzItMS4xNjUgMC0uNjQ2LS4yNy0xLjQtLjc4LTIuMTIyLjI1LjE3Mi41LjM3Ny43MzcuNjE0Ljg5OC45MDUgMS4zOTYgMS45ODMgMS4zOTYgMi44NTYiIGZpbGw9IiM1NzVFNzUiIG9wYWNpdHk9Ii4xNSIvPjxwYXRoIGQ9Ik0xOC40NSAxMi44M2MwIC41LS40MDQuOTA1LS45MDQuOTA1cy0uOTA1LS40MDUtLjkwNS0uOTA0YzAtLjUuNDA3LS45MDMuOTA2LS45MDMuNSAwIC45MDQuNDA0LjkwNC45MDR6IiBmaWxsPSIjNTc1RTc1Ii8+PC9nPjwvc3ZnPg==';
+
+/**
  * Enum for pen color parameters.
  * @readonly
  * @enum {string}
@@ -18702,6 +18709,7 @@ var Scratch3PenBlocks = function () {
             return {
                 id: 'pen',
                 name: 'Pen',
+                iconURI: iconURI,
                 blocks: [{
                     opcode: 'clear',
                     blockType: BlockType.COMMAND
@@ -18918,7 +18926,11 @@ var Scratch3PenBlocks = function () {
             penState.color = hsv.h / 360 * 100;
             penState.saturation = hsv.s * 100;
             penState.brightness = hsv.v * 100;
-            penState.transparency = 0;
+            if (rgb.hasOwnProperty('a')) {
+                penState.transparency = 100 * (1 - rgb.a / 255.0);
+            } else {
+                penState.transparency = 0;
+            }
 
             // Set the legacy "shade" value the same way scratch 2 did.
             penState._shade = penState.brightness / 2;
@@ -19477,8 +19489,10 @@ var Scratch3SensingBlocks = function () {
 
             // Variables
             var varName = args.PROPERTY;
-            if (attrTarget.variables.hasOwnProperty(varName)) {
-                return attrTarget.variables[varName].value;
+            for (var id in attrTarget.variables) {
+                if (attrTarget.variables[id].name === varName) {
+                    return attrTarget.variables[id].value;
+                }
             }
 
             // Otherwise, 0
@@ -19885,6 +19899,13 @@ var ArgumentType = __webpack_require__(28);
 var BlockType = __webpack_require__(17);
 var color = __webpack_require__(22);
 var log = __webpack_require__(2);
+
+/**
+ * Icon svg to be displayed at the left edge of each extension block, encoded as a data URI.
+ * @type {string}
+ */
+// eslint-disable-next-line max-len
+var iconURI = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGl0bGU+d2VkbzItYmxvY2staWNvbjwvdGl0bGU+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj48cGF0aCBkPSJNMzUuMzEzIDEwLjQ2N0gzMi4wOVY4Ljg2NWMwLS4yMjMuMTgtLjQwNC40MDUtLjQwNGgyLjQxMmMuMjI0IDAgLjQwNi4xODIuNDA2LjQwNXYxLjYwMnpNMzAuNDc3IDEwLjQ2N2gtMy4yMjRWOC44NjVjMC0uMjIzLjE4My0uNDA0LjQwNy0uNDA0aDIuNDFjLjIyNiAwIC40MDcuMTgyLjQwNy40MDV2MS42MDJ6TTI1LjY0IDEwLjQ2N0gyMi40MlY4Ljg2NWMwLS4yMjMuMTgyLS40MDQuNDA2LS40MDRoMi40MWMuMjI2IDAgLjQwNy4xODIuNDA3LjQwNXYxLjYwMnpNMjAuODA2IDEwLjQ2N2gtMy4yMjRWOC44NjVjMC0uMjIzLjE4Mi0uNDA0LjQwNi0uNDA0SDIwLjRjLjIyNCAwIC40MDYuMTgyLjQwNi40MDV2MS42MDJ6TTE1Ljk3IDEwLjQ2N2gtMy4yMjRWOC44NjVjMC0uMjIzLjE4Mi0uNDA0LjQwNy0uNDA0aDIuNDFjLjIyNiAwIC40MDcuMTgyLjQwNy40MDV2MS42MDJ6TTExLjEzNSAxMC40NjdINy45MVY4Ljg2NWMwLS4yMjMuMTgzLS40MDQuNDA3LS40MDRoMi40MTJjLjIyMyAwIC40MDUuMTgyLjQwNS40MDV2MS42MDJ6IiBzdHJva2U9IiM2Rjc4OTMiIGZpbGw9IiNGRkYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxwYXRoIGQ9Ik0zNy43MyAxMC40NjdINi4zYy0yLjY3IDAtNC44MzYgMi4xNTMtNC44MzYgNC44MDh2My4yMDVoMzcuMDczdi03LjIxYzAtLjQ0NC0uMzYyLS44MDMtLjgwNy0uODAzeiIgc3Ryb2tlPSIjNkY3ODkzIiBmaWxsPSIjRkZGIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMzguMTM0IDMwLjk4SDEuODY3Yy0uMjI0IDAtLjQwMy0uMTgtLjQwMy0uNFYxNi4yMzZoMzIuNzFjLjczIDAgMS40My4yODcgMS45NDUuOC41MTUuNTE0IDEuMjE1LjgwMiAxLjk0NC44MDJoLjQ3M3YxMi43NGMwIC4yMi0uMTguNC0uNDAzLjR6IiBzdHJva2U9IiM2Rjc4OTMiIGZpbGw9IiNFNkU3RTgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxwYXRoIHN0cm9rZT0iIzZGNzg5MyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMzQuODMgMTYuMjM3bC40ODMtMi41NjVoMy4yMjMiLz48cGF0aCBkPSJNMzguNTM2IDExLjI2OFYzMC41OGMwIC4yMi0uMTguNC0uNDAzLjRIMS44NjZjLS4yMiAwLS40MDMtLjE4LS40MDMtLjR2LTEuMjAzaDM0LjI4MmMuNjUgMCAxLjE4LS41MjQgMS4xOC0xLjE3M1YxMC40NjdoLjgwNWMuNDQ2IDAgLjgwNi4zNi44MDYuOHoiIHN0cm9rZT0iIzZGNzg5MyIgZmlsbD0iIzZGNzg5MyIgb3BhY2l0eT0iLjE1IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTEuNTM4IDE2LjI4aDIwLjE0OGMuMjIyIDAgLjQwMy4xOC40MDMuNHY2LjUyN2MwIC4yMjItLjE4Mi40LS40MDQuNEgxMS41MzhjLS4yMjMgMC0uNDA0LS4xNzgtLjQwNC0uNFYxNi42OGMwLS4yMi4xOC0uNC40MDQtLjQiIGZpbGw9IiNFNkU3RTgiLz48cGF0aCBkPSJNMTEuNTM4IDE2LjI4aDIwLjE0OGMuMjIyIDAgLjQwMy4xOC40MDMuNHY2LjUyN2MwIC4yMjItLjE4Mi40LS40MDQuNEgxMS41MzhjLS4yMjMgMC0uNDA0LS4xNzgtLjQwNC0uNFYxNi42OGMwLS4yMi4xOC0uNC40MDQtLjR6IiBzdHJva2U9IiM2Rjc4OTMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxwYXRoIGQ9Ik0zMi4wOSAxNi4yOHY2LjkyN2MwIC4yMjItLjE4LjQtLjQwNC40aC0yMC4xNWMtLjIyIDAtLjQtLjE4LS40LS40di0xLjJoMTguMTZjLjY1MyAwIDEuMTgtLjUyNiAxLjE4LTEuMTc0VjE2LjI4aDEuNjEzeiIgc3Ryb2tlPSIjNkY3ODkzIiBmaWxsPSIjNkU3NzkyIiBvcGFjaXR5PSIuMTUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxwYXRoIGQ9Ik0zMC40NzcgMTYuMjhoLTMuMjI0di0xLjYwNGMwLS4yMjMuMTgzLS40MDQuNDA3LS40MDRoMi40MWMuMjI2IDAgLjQwNy4xOC40MDcuNDA0djEuNjAzek0xNS45NyAxNi4yOGgtMy4yMjR2LTEuNjA0YzAtLjIyMy4xODItLjQwNC40MDctLjQwNGgyLjQxYy4yMjYgMCAuNDA3LjE4LjQwNy40MDR2MS42MDN6TTI1LjY0IDE2LjI4SDIyLjQydi0xLjYwNGMwLS4yMjMuMTgyLS40MDQuNDA2LS40MDRoMi40MWMuMjI2IDAgLjQwNy4xOC40MDcuNDA0djEuNjAzek0yMC44MDYgMTYuMjhoLTMuMjI0di0xLjYwNGMwLS4yMjMuMTgyLS40MDQuNDA2LS40MDRIMjAuNGMuMjI0IDAgLjQwNi4xOC40MDYuNDA0djEuNjAzeiIgc3Ryb2tlPSIjNkY3ODkzIiBmaWxsPSIjRTZFN0U4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTguNTU3IDE5LjkxYzAgMS4wMjUtLjgzNyAxLjg1Ny0xLjg3IDEuODU3LTEuMDMgMC0xLjg2Ny0uODMyLTEuODY3LTEuODU4IDAtMS4wMjcuODM3LTEuODU4IDEuODY4LTEuODU4IDEuMDMyIDAgMS44Ny44MyAxLjg3IDEuODU3ek0yMy40OCAxOS45MWMwIDEuMDI1LS44MzYgMS44NTctMS44NjggMS44NTdzLTEuODctLjgzMi0xLjg3LTEuODU4YzAtMS4wMjcuODM4LTEuODU4IDEuODctMS44NThzMS44NjguODMgMS44NjggMS44NTd6TTI4LjQwNCAxOS45MWMwIDEuMDI1LS44MzcgMS44NTctMS44NjggMS44NTctMS4wMzIgMC0xLjg3LS44MzItMS44Ny0xLjg1OCAwLTEuMDI3LjgzOC0xLjg1OCAxLjg3LTEuODU4IDEuMDMgMCAxLjg2OC44MyAxLjg2OCAxLjg1N3oiIHN0cm9rZT0iIzZGNzg5MyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PHBhdGggZD0iTTE4LjU1NyAxOS45MjJjMCAxLjAyNi0uODM3IDEuODU4LTEuODcgMS44NTgtMS4wMyAwLTEuODY3LS44MzItMS44NjctMS44NTggMC0xLjAyNS44MzctMS44NTcgMS44NjgtMS44NTcgMS4wMzIgMCAxLjg3LjgzMiAxLjg3IDEuODU3TTIzLjQ4IDE5LjkyMmMwIDEuMDI2LS44MzYgMS44NTgtMS44NjggMS44NThzLTEuODctLjgzMi0xLjg3LTEuODU4YzAtMS4wMjUuODM4LTEuODU3IDEuODctMS44NTdzMS44NjguODMyIDEuODY4IDEuODU3TTI4LjQwNCAxOS45MjJjMCAxLjAyNi0uODM3IDEuODU4LTEuODY4IDEuODU4LTEuMDMyIDAtMS44Ny0uODMyLTEuODctMS44NTggMC0xLjAyNS44MzgtMS44NTcgMS44Ny0xLjg1NyAxLjAzIDAgMS44NjguODMyIDEuODY4IDEuODU3IiBmaWxsPSIjNkY3ODkzIiBvcGFjaXR5PSIuNSIvPjwvZz48L3N2Zz4=';
 
 /**
  * Manage power, direction, and timers for one WeDo 2.0 motor.
@@ -20402,6 +20423,7 @@ var Scratch3WeDo2Blocks = function () {
             return {
                 id: Scratch3WeDo2Blocks.EXTENSION_ID,
                 name: 'WeDo 2.0',
+                iconURI: iconURI,
                 blocks: [{
                     opcode: 'motorOnFor',
                     text: 'turn [MOTOR_ID] on for [DURATION] seconds',
@@ -20528,7 +20550,7 @@ var Scratch3WeDo2Blocks = function () {
                 }, {
                     opcode: 'isTilted',
                     text: 'tilted [DIRECTION]?',
-                    blockType: BlockType.REPORTER,
+                    blockType: BlockType.BOOLEAN,
                     arguments: {
                         DIRECTION: {
                             type: ArgumentType.STRING,
@@ -22153,6 +22175,7 @@ var Runtime = function (_EventEmitter) {
             var categoryInfo = {
                 id: extensionInfo.id,
                 name: extensionInfo.name,
+                iconURI: extensionInfo.iconURI,
                 color1: '#FF6680',
                 color2: '#FF4D6A',
                 color3: '#FF3355',
@@ -22165,7 +22188,7 @@ var Runtime = function (_EventEmitter) {
             for (var menuName in extensionInfo.menus) {
                 if (extensionInfo.menus.hasOwnProperty(menuName)) {
                     var menuItems = extensionInfo.menus[menuName];
-                    var convertedMenu = this._buildMenuForScratchBlocks(menuName, menuItems, extensionInfo);
+                    var convertedMenu = this._buildMenuForScratchBlocks(menuName, menuItems, categoryInfo);
                     categoryInfo.menus.push(convertedMenu);
                 }
             }
@@ -22283,8 +22306,21 @@ var Runtime = function (_EventEmitter) {
             // but each `[ARG]` will need to be replaced with the number in this map instead of `args0.length`.
             var argsMap = {};
 
-            blockJSON.message0 = blockInfo.text.replace(/\[(.+?)]/g, function (match, placeholder) {
+            blockJSON.message0 = '';
 
+            // If an icon for the extension exists, prepend it to each block
+            if (categoryInfo.iconURI) {
+                blockJSON.message0 = '%1';
+                var iconJSON = {
+                    type: 'field_image',
+                    src: categoryInfo.iconURI,
+                    width: 40,
+                    height: 40
+                };
+                blockJSON.args0.push(iconJSON);
+            }
+
+            blockJSON.message0 += blockInfo.text.replace(/\[(.+?)]/g, function (match, placeholder) {
                 // Sanitize the placeholder to ensure valid XML
                 placeholder = placeholder.replace(/[<"&]/, '_');
 
@@ -25258,6 +25294,20 @@ var parseProcedureArgMap = function parseProcedureArgMap(procCode) {
 };
 
 /**
+ * Generate a list of "argument IDs" for procdefs and caller mutations.
+ * IDs just end up being `input0`, `input1`, ... which is good enough.
+ * @param {string} procCode Scratch 2.0 procedure string.
+ * @return {Array.<string>} Array of argument id strings.
+ */
+var parseProcedureArgIds = function parseProcedureArgIds(procCode) {
+    return parseProcedureArgMap(procCode).map(function (arg) {
+        return arg.inputName;
+    }).filter(function (name) {
+        return name;
+    }); // Filter out unnamed inputs which are labels
+};
+
+/**
  * Flatten a block tree into a block list.
  * Children are temporarily stored on the `block.children` property.
  * @param {Array.<object>} blocks list generated by `parseBlockList`.
@@ -25283,15 +25333,16 @@ var flatten = function flatten(blocks) {
  * or a list of blocks in an argument (e.g., move [pick random...]).
  * @param {Array.<object>} blockList SB2 JSON-format block list.
  * @param {Function} getVariableId function to retreive a variable's ID based on name
+ * @param {ImportedExtensionsInfo} extensions - (in/out) parsed extension information will be stored here.
  * @return {Array.<object>} Scratch VM-format block list.
  */
-var parseBlockList = function parseBlockList(blockList, getVariableId) {
+var parseBlockList = function parseBlockList(blockList, getVariableId, extensions) {
     var resultingList = [];
     var previousBlock = null; // For setting next.
     for (var i = 0; i < blockList.length; i++) {
         var block = blockList[i];
         // eslint-disable-next-line no-use-before-define
-        var parsedBlock = parseBlock(block, getVariableId);
+        var parsedBlock = parseBlock(block, getVariableId, extensions);
         if (typeof parsedBlock === 'undefined') continue;
         if (previousBlock) {
             parsedBlock.parent = previousBlock.id;
@@ -25309,14 +25360,15 @@ var parseBlockList = function parseBlockList(blockList, getVariableId) {
  * @param {!object} scripts Scripts object from SB2 JSON.
  * @param {!Blocks} blocks Blocks object to load parsed blocks into.
  * @param {Function} getVariableId function to retreive a variable's ID based on name
+ * @param {ImportedExtensionsInfo} extensions - (in/out) parsed extension information will be stored here.
  */
-var parseScripts = function parseScripts(scripts, blocks, getVariableId) {
+var parseScripts = function parseScripts(scripts, blocks, getVariableId, extensions) {
     for (var i = 0; i < scripts.length; i++) {
         var script = scripts[i];
         var scriptX = script[0];
         var scriptY = script[1];
         var blockList = script[2];
-        var parsedBlockList = parseBlockList(blockList, getVariableId);
+        var parsedBlockList = parseBlockList(blockList, getVariableId, extensions);
         if (parsedBlockList[0]) {
             // Adjust script coordinates to account for
             // larger block size in scratch-blocks.
@@ -25363,12 +25415,14 @@ var generateVariableIdGetter = function () {
 
 /**
  * Parse a single "Scratch object" and create all its in-memory VM objects.
- * @param {!object} object From-JSON "Scratch object:" sprite, stage, watcher.
- * @param {!Runtime} runtime Runtime object to load all structures into.
- * @param {boolean} topLevel Whether this is the top-level object (stage).
- * @return {?Promise} Promise that resolves to the loaded targets when ready.
+ * TODO: parse the "info" section, especially "savedExtensions"
+ * @param {!object} object - From-JSON "Scratch object:" sprite, stage, watcher.
+ * @param {!Runtime} runtime - Runtime object to load all structures into.
+ * @param {ImportedExtensionsInfo} extensions - (in/out) parsed extension information will be stored here.
+ * @param {boolean} topLevel - Whether this is the top-level object (stage).
+ * @return {!Promise.<Array.<Target>>} Promise for the loaded targets when ready, or null for unsupported objects.
  */
-var parseScratchObject = function parseScratchObject(object, runtime, topLevel) {
+var parseScratchObject = function parseScratchObject(object, runtime, extensions, topLevel) {
     if (!object.hasOwnProperty('objName')) {
         // Watcher/monitor - skip this object until those are implemented in VM.
         // @todo
@@ -25431,7 +25485,7 @@ var parseScratchObject = function parseScratchObject(object, runtime, topLevel) 
 
     // If included, parse any and all scripts/blocks on the object.
     if (object.hasOwnProperty('scripts')) {
-        parseScripts(object.scripts, blocks, getVariableId);
+        parseScripts(object.scripts, blocks, getVariableId, extensions);
     }
 
     if (object.hasOwnProperty('lists')) {
@@ -25487,7 +25541,7 @@ var parseScratchObject = function parseScratchObject(object, runtime, topLevel) 
     var childrenPromises = [];
     if (object.children) {
         for (var m = 0; m < object.children.length; m++) {
-            childrenPromises.push(parseScratchObject(object.children[m], runtime, false));
+            childrenPromises.push(parseScratchObject(object.children[m], runtime, extensions, false));
         }
     }
 
@@ -25508,27 +25562,43 @@ var parseScratchObject = function parseScratchObject(object, runtime, topLevel) 
  * @param {!object} json SB2-format JSON to load.
  * @param {!Runtime} runtime Runtime object to load all structures into.
  * @param {boolean=} optForceSprite If set, treat as sprite (Sprite2).
- * @return {?Promise} Promise that resolves to the loaded targets when ready.
+ * @return {Promise.<ImportedProject>} Promise that resolves to the loaded targets when ready.
  */
 var sb2import = function sb2import(json, runtime, optForceSprite) {
-    return parseScratchObject(json, runtime, !optForceSprite);
+    var extensions = {
+        extensionIDs: new Set(),
+        extensionURLs: new Map()
+    };
+    return parseScratchObject(json, runtime, extensions, !optForceSprite).then(function (targets) {
+        return {
+            targets: targets,
+            extensions: extensions
+        };
+    });
 };
 
 /**
  * Parse a single SB2 JSON-formatted block and its children.
  * @param {!object} sb2block SB2 JSON-formatted block.
- * @param {Function} getVariableId function to retreive a variable's ID based on name
- * @return {object} Scratch VM format block.
+ * @param {Function} getVariableId function to retrieve a variable's ID based on name
+ * @param {ImportedExtensionsInfo} extensions - (in/out) parsed extension information will be stored here.
+ * @return {object} Scratch VM format block, or null if unsupported object.
  */
-var parseBlock = function parseBlock(sb2block, getVariableId) {
+var parseBlock = function parseBlock(sb2block, getVariableId, extensions) {
     // First item in block object is the old opcode (e.g., 'forward:').
     var oldOpcode = sb2block[0];
     // Convert the block using the specMap. See sb2specmap.js.
     if (!oldOpcode || !specMap[oldOpcode]) {
         log.warn('Couldn\'t find SB2 block: ', oldOpcode);
-        return;
+        return null;
     }
     var blockMetadata = specMap[oldOpcode];
+    // If the block is from an extension, record it.
+    var dotIndex = blockMetadata.opcode.indexOf('.');
+    if (dotIndex >= 0) {
+        var extension = blockMetadata.opcode.substring(0, dotIndex);
+        extensions.extensionIDs.add(extension);
+    }
     // Block skeleton.
     var activeBlock = {
         id: uid(), // Generate a new block unique ID.
@@ -25565,10 +25635,10 @@ var parseBlock = function parseBlock(sb2block, getVariableId) {
                 var innerBlocks = void 0;
                 if (_typeof(providedArg[0]) === 'object' && providedArg[0]) {
                     // Block list occupies the input.
-                    innerBlocks = parseBlockList(providedArg, getVariableId);
+                    innerBlocks = parseBlockList(providedArg, getVariableId, extensions);
                 } else {
                     // Single block occupies the input.
-                    innerBlocks = [parseBlock(providedArg, getVariableId)];
+                    innerBlocks = [parseBlock(providedArg, getVariableId, extensions)];
                 }
                 var previousBlock = null;
                 for (var j = 0; j < innerBlocks.length; j++) {
@@ -25684,6 +25754,7 @@ var parseBlock = function parseBlock(sb2block, getVariableId) {
                 tagName: 'mutation',
                 proccode: procData[0], // e.g., "abc %n %b %s"
                 argumentnames: JSON.stringify(procData[1]), // e.g. ['arg1', 'arg2']
+                argumentids: JSON.stringify(parseProcedureArgIds(procData[0])),
                 argumentdefaults: JSON.stringify(procData[2]), // e.g., [1, 'abc']
                 warp: procData[3], // Warp mode, e.g., true/false.
                 children: []
@@ -25695,7 +25766,8 @@ var parseBlock = function parseBlock(sb2block, getVariableId) {
         activeBlock.mutation = {
             tagName: 'mutation',
             children: [],
-            proccode: sb2block[1]
+            proccode: sb2block[1],
+            argumentids: JSON.stringify(parseProcedureArgIds(sb2block[1]))
         };
     } else if (oldOpcode === 'getParam') {
         // Mutation for procedure parameter.
@@ -25742,6 +25814,24 @@ module.exports = {
  * I started with the `commands` array in Specs.as, and discarded irrelevant
  * properties. By hand, I matched the opcode name to the 3.0 opcode.
  * Finally, I filled in the expected arguments as below.
+ */
+
+/**
+ * @typedef {object} SB2SpecMap_blockInfo
+ * @property {string} opcode - the Scratch 3.0 block opcode. Use 'extensionID.opcode' for extension opcodes.
+ * @property {Array.<SB2SpecMap_argInfo>} argMap - metadata for this block's arguments.
+ */
+
+/**
+ * @typedef {object} SB2SpecMap_argInfo
+ * @property {string} type - the type of this arg (such as 'input' or 'field')
+ * @property {string} inputOp - the scratch-blocks shadow type for this arg
+ * @property {string} inputName - the name this argument will take when provided to the block implementation
+ */
+
+/**
+ * Mapping of Scratch 2.0 opcode to Scratch 3.0 block metadata.
+ * @type {object.<SB2SpecMap_blockInfo>}
  */
 var specMap = {
     'forward:': {
@@ -26822,6 +26912,155 @@ var specMap = {
         argMap: []
     }
 };
+
+/**
+ * Add to the specMap entries for an opcode from a Scratch 2.0 extension. Two entries will be made with the same
+ * metadata; this is done to support projects saved by both older and newer versions of the Scratch 2.0 editor.
+ * @param {string} sb2Extension - the Scratch 2.0 name of the extension
+ * @param {string} sb2Opcode - the Scratch 2.0 opcode
+ * @param {SB2SpecMap_blockInfo} blockInfo - the Scratch 3.0 block info
+ */
+var addExtensionOp = function addExtensionOp(sb2Extension, sb2Opcode, blockInfo) {
+    /**
+     * This string separates the name of an extension and the name of an opcode in more recent Scratch 2.0 projects.
+     * Earlier projects used '.' as a separator, up until we added the 'LEGO WeDo 2.0' extension...
+     * @type {string}
+     */
+    var sep = '\x1F'; // Unicode Unit Separator
+
+    // make one entry for projects saved by recent versions of the Scratch 2.0 editor
+    specMap['' + sb2Extension + sep + sb2Opcode] = blockInfo;
+
+    // make a second for projects saved by older versions of the Scratch 2.0 editor
+    specMap[sb2Extension + '.' + sb2Opcode] = blockInfo;
+};
+
+var weDo2 = 'LEGO WeDo 2.0';
+
+addExtensionOp(weDo2, 'motorOnFor', {
+    opcode: 'wedo2.motorOnFor',
+    argMap: [{
+        type: 'input',
+        inputOp: 'wedo2.menu.motorID',
+        inputName: 'MOTOR_ID'
+    }, {
+        type: 'input',
+        inputOp: 'math_number',
+        inputName: 'DURATION'
+    }]
+});
+
+addExtensionOp(weDo2, 'motorOn', {
+    opcode: 'wedo2.motorOn',
+    argMap: [{
+        type: 'input',
+        inputOp: 'wedo2.menu.motorID',
+        inputName: 'MOTOR_ID'
+    }]
+});
+
+addExtensionOp(weDo2, 'motorOff', {
+    opcode: 'wedo2.motorOff',
+    argMap: [{
+        type: 'input',
+        inputOp: 'wedo2.menu.motorID',
+        inputName: 'MOTOR_ID'
+    }]
+});
+
+addExtensionOp(weDo2, 'startMotorPower', {
+    opcode: 'wedo2.startMotorPower',
+    argMap: [{
+        type: 'input',
+        inputOp: 'wedo2.menu.motorID',
+        inputName: 'MOTOR_ID'
+    }, {
+        type: 'input',
+        inputOp: 'math_number',
+        inputName: 'POWER'
+    }]
+});
+
+addExtensionOp(weDo2, 'setMotorDirection', {
+    opcode: 'wedo2.setMotorDirection',
+    argMap: [{
+        type: 'input',
+        inputOp: 'wedo2.menu.motorID',
+        inputName: 'MOTOR_ID'
+    }, {
+        type: 'input',
+        inputOp: 'wedo2.menu.motorDirection',
+        inputName: 'DIRECTION'
+    }]
+});
+
+addExtensionOp(weDo2, 'setLED', {
+    opcode: 'wedo2.setLightHue',
+    argMap: [{
+        type: 'input',
+        inputOp: 'math_number',
+        inputName: 'HUE'
+    }]
+});
+
+addExtensionOp(weDo2, 'playNote', {
+    opcode: 'wedo2.playNoteFor',
+    argMap: [{
+        type: 'input',
+        inputOp: 'math_number',
+        inputName: 'NOTE'
+    }, {
+        type: 'input',
+        inputOp: 'math_number',
+        inputName: 'DURATION'
+    }]
+});
+
+addExtensionOp(weDo2, 'whenDistance', {
+    opcode: 'wedo2.whenDistance',
+    argMap: [{
+        type: 'input',
+        inputOp: 'wedo2.menu.lessMore',
+        inputName: 'OP'
+    }, {
+        type: 'input',
+        inputOp: 'math_number',
+        inputName: 'REFERENCE'
+    }]
+});
+
+addExtensionOp(weDo2, 'whenTilted', {
+    opcode: 'wedo2.whenTilted',
+    argMap: [{
+        type: 'input',
+        inputOp: 'wedo2.menu.tiltDirectionAny',
+        inputName: 'DIRECTION'
+    }]
+});
+
+addExtensionOp(weDo2, 'getDistance', {
+    opcode: 'wedo2.getDistance',
+    argMap: []
+});
+
+addExtensionOp(weDo2, 'isTilted', {
+    opcode: 'wedo2.isTilted',
+    argMap: [{
+        type: 'input',
+        inputOp: 'wedo2.menu.tiltDirectionAny',
+        inputName: 'DIRECTION'
+    }]
+});
+
+addExtensionOp(weDo2, 'getTilt', {
+    opcode: 'wedo2.getTiltAngle',
+    argMap: [{
+        type: 'input',
+        inputOp: 'wedo2.menu.tiltDirection',
+        inputName: 'DIRECTION'
+    }]
+});
+
 module.exports = specMap;
 
 /***/ }),
@@ -26848,6 +27087,18 @@ var _require = __webpack_require__(18),
 
 var _require2 = __webpack_require__(19),
     loadSound = _require2.loadSound;
+
+/**
+ * @typedef {object} ImportedProject
+ * @property {Array.<Target>} targets - the imported Scratch 3.0 target objects.
+ * @property {ImportedExtensionsInfo} extensionsInfo - the ID of each extension actually used by this project.
+ */
+
+/**
+ * @typedef {object} ImportedExtensionsInfo
+ * @property {Set.<string>} extensionIDs - the ID of each extension actually in use by blocks in this project.
+ * @property {Map.<string, string>} extensionURLs - map of ID => URL from project metadata. May not match extensionIDs.
+ */
 
 /**
  * Serializes the specified VM runtime.
@@ -26881,13 +27132,14 @@ var serialize = function serialize(runtime) {
  * Parse a single "Scratch object" and create all its in-memory VM objects.
  * @param {!object} object From-JSON "Scratch object:" sprite, stage, watcher.
  * @param {!Runtime} runtime Runtime object to load all structures into.
- * @return {?Target} Target created (stage or sprite).
+ * @param {ImportedExtensionsInfo} extensions - (in/out) parsed extension information will be stored here.
+ * @return {!Promise.<Target>} Promise for the target created (stage or sprite), or null for unsupported objects.
  */
-var parseScratchObject = function parseScratchObject(object, runtime) {
+var parseScratchObject = function parseScratchObject(object, runtime, extensions) {
     if (!object.hasOwnProperty('name')) {
         // Watcher/monitor - skip this object until those are implemented in VM.
         // @todo
-        return;
+        return Promise.resolve(null);
     }
     // Blocks container for this object.
     var blocks = new Blocks();
@@ -26901,7 +27153,14 @@ var parseScratchObject = function parseScratchObject(object, runtime) {
     }
     if (object.hasOwnProperty('blocks')) {
         for (var blockId in object.blocks) {
-            blocks.createBlock(object.blocks[blockId]);
+            var blockJSON = object.blocks[blockId];
+            blocks.createBlock(blockJSON);
+
+            var dotIndex = blockJSON.opcode.indexOf('.');
+            if (dotIndex >= 0) {
+                var extensionId = blockJSON.opcode.substring(0, dotIndex);
+                extensions.extensionIDs.add(extensionId);
+            }
         }
         // console.log(blocks);
     }
@@ -26987,16 +27246,25 @@ var parseScratchObject = function parseScratchObject(object, runtime) {
 };
 
 /**
- * Deserializes the specified representation of a VM runtime and loads it into
- * the provided runtime instance.
- * @param  {object}  json    JSON representation of a VM runtime.
- * @param  {Runtime} runtime Runtime instance
- * @returns {Promise} Promise that resolves to the list of targets after the project is deserialized
+ * Deserialize the specified representation of a VM runtime and loads it into the provided runtime instance.
+ * TODO: parse extension info (also, design extension info storage...)
+ * @param  {object} json - JSON representation of a VM runtime.
+ * @param  {Runtime} runtime - Runtime instance
+ * @returns {Promise.<ImportedProject>} Promise that resolves to the list of targets after the project is deserialized
  */
 var deserialize = function deserialize(json, runtime) {
+    var extensions = {
+        extensionIDs: new Set(),
+        extensionURLs: new Map()
+    };
     return Promise.all((json.targets || []).map(function (target) {
-        return parseScratchObject(target, runtime);
-    }));
+        return parseScratchObject(target, runtime, extensions);
+    })).then(function (targets) {
+        return {
+            targets: targets,
+            extensions: extensions
+        };
+    });
 };
 
 module.exports = {
@@ -27098,7 +27366,7 @@ var VirtualMachine = function (_EventEmitter) {
         /**
          * The "currently editing"/selected target ID for the VM.
          * Block events from any Blockly workspace are routed to this target.
-         * @type {!string}
+         * @type {Target}
          */
         _this.editingTarget = null;
         // Runtime emits are passed along as VM emits.
@@ -27338,25 +27606,57 @@ var VirtualMachine = function (_EventEmitter) {
                 deserializer = sb2;
             }
 
-            return deserializer.deserialize(json, this.runtime).then(function (targets) {
-                _this2.clear();
-                for (var n = 0; n < targets.length; n++) {
-                    if (targets[n] !== null) {
-                        _this2.runtime.targets.push(targets[n]);
-                        targets[n].updateAllDrawableProperties();
-                    }
+            return deserializer.deserialize(json, this.runtime).then(function (_ref) {
+                var targets = _ref.targets,
+                    extensions = _ref.extensions;
+                return _this2.installTargets(targets, extensions, true);
+            });
+        }
+
+        /**
+         * Install `deserialize` results: zero or more targets after the extensions (if any) used by those targets.
+         * @param {Array.<Target>} targets - the targets to be installed
+         * @param {ImportedExtensionsInfo} extensions - metadata about extensions used by these targets
+         * @param {boolean} wholeProject - set to true if installing a whole project, as opposed to a single sprite.
+         * @returns {Promise} resolved once targets have been installed
+         */
+
+    }, {
+        key: 'installTargets',
+        value: function installTargets(targets, extensions, wholeProject) {
+            var _this3 = this;
+
+            var extensionPromises = [];
+            extensions.extensionIDs.forEach(function (extensionID) {
+                if (!_this3.extensionManager.isExtensionLoaded(extensionID)) {
+                    var extensionURL = extensions.extensionURLs.get(extensionID) || extensionID;
+                    extensionPromises.push(_this3.extensionManager.loadExtensionURL(extensionURL));
                 }
+            });
+
+            targets = targets.filter(function (target) {
+                return !!target;
+            });
+
+            return Promise.all(extensionPromises).then(function () {
+                if (wholeProject) {
+                    _this3.clear();
+                }
+                targets.forEach(function (target) {
+                    _this3.runtime.targets.push(target);
+                    /** @type RenderedTarget */target.updateAllDrawableProperties();
+                });
                 // Select the first target for editing, e.g., the first sprite.
-                if (_this2.runtime.targets.length > 1) {
-                    _this2.editingTarget = _this2.runtime.targets[1];
+                if (wholeProject && targets.length > 1) {
+                    _this3.editingTarget = targets[1];
                 } else {
-                    _this2.editingTarget = _this2.runtime.targets[0];
+                    _this3.editingTarget = targets[0];
                 }
 
                 // Update the VM user's knowledge of targets and blocks on the workspace.
-                _this2.emitTargetsUpdate();
-                _this2.emitWorkspaceUpdate();
-                _this2.runtime.setEditingTarget(_this2.editingTarget);
+                _this3.emitTargetsUpdate();
+                _this3.emitWorkspaceUpdate();
+                _this3.runtime.setEditingTarget(_this3.editingTarget);
             });
         }
 
@@ -27369,7 +27669,7 @@ var VirtualMachine = function (_EventEmitter) {
     }, {
         key: 'addSprite2',
         value: function addSprite2(json) {
-            var _this3 = this;
+            var _this4 = this;
 
             // Validate & parse
             if (typeof json !== 'string') {
@@ -27382,16 +27682,10 @@ var VirtualMachine = function (_EventEmitter) {
                 return;
             }
 
-            // Select new sprite.
-            return sb2.deserialize(json, this.runtime, true).then(function (targets) {
-                _this3.runtime.targets.push(targets[0]);
-                _this3.editingTarget = targets[0];
-                _this3.editingTarget.updateAllDrawableProperties();
-
-                // Update the VM user's knowledge of targets and blocks on the workspace.
-                _this3.emitTargetsUpdate();
-                _this3.emitWorkspaceUpdate();
-                _this3.runtime.setEditingTarget(_this3.editingTarget);
+            return sb2.deserialize(json, this.runtime, true).then(function (_ref2) {
+                var targets = _ref2.targets,
+                    extensions = _ref2.extensions;
+                return _this4.installTargets(targets, extensions, false);
             });
         }
 
@@ -27408,11 +27702,11 @@ var VirtualMachine = function (_EventEmitter) {
     }, {
         key: 'addCostume',
         value: function addCostume(md5ext, costumeObject) {
-            var _this4 = this;
+            var _this5 = this;
 
             loadCostume(md5ext, costumeObject, this.runtime).then(function () {
-                _this4.editingTarget.addCostume(costumeObject);
-                _this4.editingTarget.setCostume(_this4.editingTarget.sprite.costumes.length - 1);
+                _this5.editingTarget.addCostume(costumeObject);
+                _this5.editingTarget.setCostume(_this5.editingTarget.sprite.costumes.length - 1);
             });
         }
 
@@ -27449,11 +27743,11 @@ var VirtualMachine = function (_EventEmitter) {
     }, {
         key: 'addSound',
         value: function addSound(soundObject) {
-            var _this5 = this;
+            var _this6 = this;
 
             return loadSound(soundObject, this.runtime).then(function () {
-                _this5.editingTarget.addSound(soundObject);
-                _this5.emitTargetsUpdate();
+                _this6.editingTarget.addSound(soundObject);
+                _this6.emitTargetsUpdate();
             });
         }
 
@@ -27564,10 +27858,10 @@ var VirtualMachine = function (_EventEmitter) {
     }, {
         key: 'addBackdrop',
         value: function addBackdrop(md5ext, backdropObject) {
-            var _this6 = this;
+            var _this7 = this;
 
             loadCostume(md5ext, backdropObject, this.runtime).then(function () {
-                var stage = _this6.runtime.getTargetForStage();
+                var stage = _this7.runtime.getTargetForStage();
                 stage.sprite.costumes.push(backdropObject);
                 stage.setCostume(stage.sprite.costumes.length - 1);
             });
@@ -27652,7 +27946,7 @@ var VirtualMachine = function (_EventEmitter) {
     }, {
         key: 'duplicateSprite',
         value: function duplicateSprite(targetId) {
-            var _this7 = this;
+            var _this8 = this;
 
             var target = this.runtime.getTargetById(targetId);
             if (!target) {
@@ -27663,8 +27957,8 @@ var VirtualMachine = function (_EventEmitter) {
                 throw new Error('No sprite associated with this target.');
             }
             target.duplicate().then(function (newTarget) {
-                _this7.runtime.targets.push(newTarget);
-                _this7.setEditingTarget(newTarget.id);
+                _this8.runtime.targets.push(newTarget);
+                _this8.setEditingTarget(newTarget.id);
             });
         }
 
