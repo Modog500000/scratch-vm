@@ -23613,9 +23613,12 @@ var Sequencer = function () {
                     var activeThread = threads[i];
                     if (activeThread.stack.length === 0 || activeThread.status === Thread.STATUS_DONE) {
                         // Finished with this thread.
-                        if (doneThreads.indexOf(activeThread) < 0) {
-                            doneThreads.push(activeThread);
-                        }
+                        // if (doneThreads.indexOf(activeThread) < 0) {
+                        //     doneThreads.push(activeThread);
+                        // }
+                        doneThreads.push(activeThread);
+                        threads.splice(i, 1);
+                        i--;
                         continue;
                     }
                     if (activeThread.status === Thread.STATUS_YIELD_TICK && !ranFirstTick) {
@@ -23638,13 +23641,13 @@ var Sequencer = function () {
                 // threads on the next tick.
                 ranFirstTick = true;
 
-                // Filter inactive threads from `this.runtime.threads`.
-                this.runtime.threads = threads = threads.filter(function (thread) {
-                    if (doneThreads.indexOf(thread) > -1) {
-                        return false;
-                    }
-                    return true;
-                });
+                // // Filter inactive threads from `this.runtime.threads`.
+                // this.runtime.threads = threads = threads.filter(thread => {
+                //     if (doneThreads.indexOf(thread) > -1) {
+                //         return false;
+                //     }
+                //     return true;
+                // });
             }
             return doneThreads;
         }
