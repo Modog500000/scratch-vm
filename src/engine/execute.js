@@ -258,8 +258,8 @@ execute = function (sequencer, thread) {
 
     // let primitiveReportedValue = blockFunction(argValues,
     //      new ExecuteRecord(currentStackFrame.executionContext, target, thread, sequencer, runtime, blockContainer));
-    const primitiveReportedValue = blockFunction(argValues,
-        new ExecuteRecord(currentStackFrame.executionContext, thread, sequencer, blockContainer));
+    const executeRecord = new ExecuteRecord(currentStackFrame.executionContext, thread, sequencer, blockContainer);
+    const primitiveReportedValue = blockFunction(argValues, executeRecord);
 
     if (typeof primitiveReportedValue === 'undefined') {
         // No value reported - potentially a command block.

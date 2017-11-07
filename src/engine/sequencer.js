@@ -43,7 +43,7 @@ class Sequencer {
         // 1. We must have threads in the list, and some must be active.
         // 2. Time elapsed must be less than WORK_TIME.
         // 3. Either turbo mode, or no redraw has been requested by a primitive.
-        const threads = this.runtime.threads;
+        let threads = this.runtime.threads;
         while (threads.length > 0 &&
                numActiveThreads > 0 &&
                this.timer.timeElapsed() < WORK_TIME &&
@@ -81,14 +81,15 @@ class Sequencer {
             // We successfully ticked once. Prevents running STATUS_YIELD_TICK
             // threads on the next tick.
             ranFirstTick = true;
+
+            // Filter inactive threads from `this.runtime.threads`.
+            this.runtime.threads = threads = threads.filter(thread => {
+                if (doneThreads.indexOf(thread) > -1) {
+                    return false;
+                }
+                return true;
+            });
         }
-        // Filter inactive threads from `this.runtime.threads`.
-        this.runtime.threads = threads.filter(thread => {
-            if (doneThreads.indexOf(thread) > -1) {
-                return false;
-            }
-            return true;
-        });
         return doneThreads;
     }
 
