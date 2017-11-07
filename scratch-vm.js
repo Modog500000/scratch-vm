@@ -3290,9 +3290,9 @@ var Blocks = function () {
         }
 
         /**
-         * Get the procedure definition for a given name.
+         * Get names of parameters for the given procedure.
          * @param {?string} name Name of procedure to query.
-         * @return {?string} ID of procedure definition.
+         * @return {?Array.<string>} List of param names for a procedure.
          */
 
     }, {
@@ -21696,7 +21696,8 @@ execute = function execute(sequencer, thread) {
 
     // let primitiveReportedValue = blockFunction(argValues,
     //      new ExecuteRecord(currentStackFrame.executionContext, target, thread, sequencer, runtime, blockContainer));
-    var primitiveReportedValue = blockFunction(argValues, new ExecuteRecord(currentStackFrame.executionContext, thread, sequencer, blockContainer));
+    var executeRecord = new ExecuteRecord(currentStackFrame.executionContext, thread, sequencer, blockContainer);
+    var primitiveReportedValue = blockFunction(argValues, executeRecord);
 
     if (typeof primitiveReportedValue === 'undefined') {
         // No value reported - potentially a command block.
@@ -22648,7 +22649,8 @@ var Runtime = function (_EventEmitter) {
     }, {
         key: 'isActiveThread',
         value: function isActiveThread(thread) {
-            return thread.stack.length > 0 && this.threads.indexOf(thread) > -1;
+            // return thread.stack.length > 0 && this.threads.indexOf(thread) > -1;
+            return this.threads.indexOf(thread) > -1;
         }
 
         /**
@@ -23635,14 +23637,15 @@ var Sequencer = function () {
                 // We successfully ticked once. Prevents running STATUS_YIELD_TICK
                 // threads on the next tick.
                 ranFirstTick = true;
+
+                // Filter inactive threads from `this.runtime.threads`.
+                this.runtime.threads = threads = threads.filter(function (thread) {
+                    if (doneThreads.indexOf(thread) > -1) {
+                        return false;
+                    }
+                    return true;
+                });
             }
-            // Filter inactive threads from `this.runtime.threads`.
-            this.runtime.threads = threads.filter(function (thread) {
-                if (doneThreads.indexOf(thread) > -1) {
-                    return false;
-                }
-                return true;
-            });
             return doneThreads;
         }
 
