@@ -32,7 +32,7 @@ const defaultBlockPackages = {
  * @constant useVSync
  * @type {boolean}
  */
-const useVSync = true;
+const useVSync = typeof window !== 'undefined' && window.requestAnimationFrame;
 
 /**
  * Information used for converting Scratch argument types into scratch-blocks data.
@@ -1145,8 +1145,11 @@ class Runtime extends EventEmitter {
     setCompatibilityMode (compatibilityModeOn) {
         this.compatibilityMode = compatibilityModeOn;
         if (this._steppingInterval) {
-            window.cancelAnimationFrame(this._steppingInterval);
-            clearInterval(this._steppingInterval);
+            if (useVSync) {
+                window.cancelAnimationFrame(this._steppingInterval);
+            } else {
+                clearInterval(this._steppingInterval);
+            }
             this.start();
         }
     }
