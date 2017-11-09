@@ -7,6 +7,8 @@ const Blocks = require('./blocks');
 const BlockType = require('../extension-support/block-type');
 const Sequencer = require('./sequencer');
 const Thread = require('./thread');
+const Timer = require('../util/timer');
+const log = require('../util/log');
 
 // Virtual I/O devices.
 const Clock = require('../io/clock');
@@ -25,6 +27,12 @@ const defaultBlockPackages = {
     scratch3_data: require('../blocks/scratch3_data'),
     scratch3_procedures: require('../blocks/scratch3_procedures')
 };
+
+/**
+ * @constant useVSync
+ * @type {boolean}
+ */
+const useVSync = true;
 
 /**
  * Information used for converting Scratch argument types into scratch-blocks data.
@@ -212,6 +220,10 @@ class Runtime extends EventEmitter {
          * @type {!number}
          */
         this.currentStepTime = null;
+
+        this.runtimeTimer = new Timer();
+        this.nextRedrawTime = 0;
+        this.skip = 0;
 
         /**
          * Whether any primitive has requested a redraw.
@@ -662,7 +674,7 @@ class Runtime extends EventEmitter {
 
     /**
      * Retrieve the function associated with the given opcode.
-     * @param {?string} opcode The opcode to look up.
+     * @param {!string} opcode The opcode to look up.
      * @return {Function} The function which implements the opcode.
      */
     getOpcodeFunction (opcode) {
@@ -671,7 +683,7 @@ class Runtime extends EventEmitter {
 
     /**
      * Return whether an opcode represents a hat block.
-     * @param {?string} opcode The opcode to look up.
+     * @param {!string} opcode The opcode to look up.
      * @return {boolean} True if the op is known to be a hat.
      */
     getIsHat (opcode) {
@@ -799,7 +811,6 @@ class Runtime extends EventEmitter {
      * @return {boolean} True if the thread is active/running.
      */
     isActiveThread (thread) {
-        // return thread.stack.length > 0 && this.threads.indexOf(thread) > -1;
         return this.threads.indexOf(thread) > -1;
     }
 
@@ -1073,6 +1084,11 @@ class Runtime extends EventEmitter {
         this._emitProjectRunStatus(
             this.threads.length + doneThreads.length -
                 this._getMonitorThreadCount([...this.threads, ...doneThreads]));
+
+        // this._render();
+    }
+
+    _render () {
         if (this.renderer) {
             // @todo: Only render when this.redrawRequested or clones rendered.
             this.renderer.draw();
@@ -1129,6 +1145,7 @@ class Runtime extends EventEmitter {
     setCompatibilityMode (compatibilityModeOn) {
         this.compatibilityMode = compatibilityModeOn;
         if (this._steppingInterval) {
+            window.cancelAnimationFrame(this._steppingInterval);
             clearInterval(this._steppingInterval);
             this.start();
         }
@@ -1410,9 +1427,47 @@ class Runtime extends EventEmitter {
             interval = Runtime.THREAD_STEP_INTERVAL_COMPATIBILITY;
         }
         this.currentStepTime = interval;
-        this._steppingInterval = setInterval(() => {
-            this._step();
-        }, interval);
+
+        if (useVSync) {
+            const callback = () => {
+                const now = this.runtimeTimer.time();
+                const elapsed = now - this.nextRedrawTime;
+                if (elapsed >= -(1000 / 90)) {
+                    this.skip = 0;
+
+                    // Gently nudge the frame timer in sync with the monitors vsync.
+                    const gentleSync = (elapsed / 10.0);
+
+                    this.nextRedrawTime += this.currentStepTime + gentleSync;
+                    if (now >= this.nextRedrawTime) {
+                        log.warn('Running too slow to maintain framerate');
+                        this.nextRedrawTime = now + this.currentStepTime;
+                    }
+                    this._step();
+
+                } else if (elapsed < -(1000 / 5)) {
+                    this.skip++;
+                    log.warn('Frame Catch Up (Way behind)');
+                    this.nextRedrawTime = now + this.currentStepTime;
+
+                } else {
+                    this.skip++;
+                    if (this.skip > 1) {
+                        log.warn('Unexpected Frame skip (x%1)', this.skip);
+                    }
+                }
+
+                this._render();
+                this._steppingInterval = window.requestAnimationFrame(callback);
+            };
+            this._steppingInterval = window.requestAnimationFrame(callback);
+
+        } else {
+            this._steppingInterval = setInterval(() => {
+                this._step();
+                this._render();
+            }, interval);
+        }
     }
 }
 
