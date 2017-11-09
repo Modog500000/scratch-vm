@@ -95,6 +95,18 @@ module.exports = g;
 
 /***/ }),
 /* 1 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var minilog = __webpack_require__(137);
+minilog.enable();
+
+module.exports = minilog('vm');
+
+/***/ }),
+/* 2 */
 /***/ (function(module, exports) {
 
 if (typeof Object.create === 'function') {
@@ -123,18 +135,6 @@ if (typeof Object.create === 'function') {
 
 
 /***/ }),
-/* 2 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var minilog = __webpack_require__(137);
-minilog.enable();
-
-module.exports = minilog('vm');
-
-/***/ }),
 /* 3 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -151,7 +151,7 @@ module.exports = minilog('vm');
 
 var base64 = __webpack_require__(31)
 var ieee754 = __webpack_require__(34)
-var isArray = __webpack_require__(24)
+var isArray = __webpack_require__(25)
 
 exports.Buffer = Buffer
 exports.SlowBuffer = SlowBuffer
@@ -2794,7 +2794,7 @@ process.umask = function() { return 0; };
 
 /*<replacement>*/
 
-var processNextTick = __webpack_require__(25);
+var processNextTick = __webpack_require__(26);
 /*</replacement>*/
 
 /*<replacement>*/
@@ -2810,7 +2810,7 @@ module.exports = Duplex;
 
 /*<replacement>*/
 var util = __webpack_require__(14);
-util.inherits = __webpack_require__(1);
+util.inherits = __webpack_require__(2);
 /*</replacement>*/
 
 var Readable = __webpack_require__(52);
@@ -4351,7 +4351,7 @@ module.exports = BlockType;
 
 
 var StringUtil = __webpack_require__(13);
-var log = __webpack_require__(2);
+var log = __webpack_require__(1);
 
 /**
  * Initialize a costume from an asset asynchronously.
@@ -4446,7 +4446,7 @@ module.exports = {
 
 
 var StringUtil = __webpack_require__(13);
-var log = __webpack_require__(2);
+var log = __webpack_require__(1);
 
 /**
  * Initialize a sound from an asset asynchronously.
@@ -4511,7 +4511,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var log = __webpack_require__(2);
+var log = __webpack_require__(1);
 var MathUtil = __webpack_require__(10);
 var StringUtil = __webpack_require__(13);
 var Target = __webpack_require__(86);
@@ -5864,6 +5864,133 @@ module.exports = Color;
 
 /***/ }),
 /* 23 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/**
+ * @fileoverview
+ * A utility for accurately measuring time.
+ * To use:
+ * ---
+ * var timer = new Timer();
+ * timer.start();
+ * ... pass some time ...
+ * var timeDifference = timer.timeElapsed();
+ * ---
+ * Or, you can use the `time` and `relativeTime`
+ * to do some measurement yourself.
+ */
+
+var Timer = function () {
+    function Timer() {
+        _classCallCheck(this, Timer);
+
+        /**
+         * Used to store the start time of a timer action.
+         * Updated when calling `timer.start`.
+         */
+        this.startTime = 0;
+        this.myNowObj = Timer.nowObj;
+    }
+
+    /**
+     * Disable use of self.performance for now as it results in lower performance
+     * However, instancing it like below (caching the self.performance to a local variable) negates most of the issues.
+     * @type {boolean}
+     */
+
+
+    _createClass(Timer, [{
+        key: 'time',
+
+
+        /**
+         * Return the currently known absolute time, in ms precision.
+         * @returns {number} ms elapsed since 1 January 1970 00:00:00 UTC.
+         */
+        value: function time() {
+            return this.myNowObj.now();
+        }
+
+        /**
+         * Returns a time accurate relative to other times produced by this function.
+         * If possible, will use sub-millisecond precision.
+         * If not, will use millisecond precision.
+         * Not guaranteed to produce the same absolute values per-system.
+         * @returns {number} ms-scale accurate time relative to other relative times.
+         */
+
+    }, {
+        key: 'relativeTime',
+        value: function relativeTime() {
+            return this.myNowObj.now();
+        }
+
+        /**
+         * Start a timer for measuring elapsed time,
+         * at the most accurate precision possible.
+         */
+
+    }, {
+        key: 'start',
+        value: function start() {
+            this.startTime = this.myNowObj.now();
+        }
+    }, {
+        key: 'timeElapsed',
+        value: function timeElapsed() {
+            return this.myNowObj.now() - this.startTime;
+        }
+    }], [{
+        key: 'USE_PERFORMANCE',
+        get: function get() {
+            return false;
+        }
+
+        /**
+         * Legacy object to allow for us to call now to get the old style date time (for backwards compatibility)
+         * @deprecated This is only called via the nowObj.now() if no other means is possible...
+         */
+
+    }, {
+        key: 'legacyDateCode',
+        get: function get() {
+            return {
+                now: function now() {
+                    return new Date().getTime();
+                }
+            };
+        }
+
+        /**
+         * Use this object to route all time functions through single access points.
+         */
+
+    }, {
+        key: 'nowObj',
+        get: function get() {
+            if (Timer.USE_PERFORMANCE && typeof self !== 'undefined' && self.performance && 'now' in self.performance) {
+                return self.performance;
+            } else if (Date.now) {
+                return Date;
+            }
+            return Timer.legacyDateCode;
+        }
+    }]);
+
+    return Timer;
+}();
+
+module.exports = Timer;
+
+/***/ }),
+/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
@@ -10847,7 +10974,7 @@ module.exports = Color;
 }));
 
 /***/ }),
-/* 24 */
+/* 25 */
 /***/ (function(module, exports) {
 
 var toString = {}.toString;
@@ -10858,7 +10985,7 @@ module.exports = Array.isArray || function (arr) {
 
 
 /***/ }),
-/* 25 */
+/* 26 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10909,7 +11036,7 @@ function nextTick(fn, arg1, arg2, arg3) {
 /* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(8)))
 
 /***/ }),
-/* 26 */
+/* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10937,7 +11064,7 @@ var List = function List(name, contents) {
 module.exports = List;
 
 /***/ }),
-/* 27 */
+/* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10984,7 +11111,7 @@ var Variable = function () {
 module.exports = Variable;
 
 /***/ }),
-/* 28 */
+/* 29 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10999,133 +11126,6 @@ var ArgumentType = {
 };
 
 module.exports = ArgumentType;
-
-/***/ }),
-/* 29 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-/**
- * @fileoverview
- * A utility for accurately measuring time.
- * To use:
- * ---
- * var timer = new Timer();
- * timer.start();
- * ... pass some time ...
- * var timeDifference = timer.timeElapsed();
- * ---
- * Or, you can use the `time` and `relativeTime`
- * to do some measurement yourself.
- */
-
-var Timer = function () {
-    function Timer() {
-        _classCallCheck(this, Timer);
-
-        /**
-         * Used to store the start time of a timer action.
-         * Updated when calling `timer.start`.
-         */
-        this.startTime = 0;
-        this.myNowObj = Timer.nowObj;
-    }
-
-    /**
-     * Disable use of self.performance for now as it results in lower performance
-     * However, instancing it like below (caching the self.performance to a local variable) negates most of the issues.
-     * @type {boolean}
-     */
-
-
-    _createClass(Timer, [{
-        key: 'time',
-
-
-        /**
-         * Return the currently known absolute time, in ms precision.
-         * @returns {number} ms elapsed since 1 January 1970 00:00:00 UTC.
-         */
-        value: function time() {
-            return this.myNowObj.now();
-        }
-
-        /**
-         * Returns a time accurate relative to other times produced by this function.
-         * If possible, will use sub-millisecond precision.
-         * If not, will use millisecond precision.
-         * Not guaranteed to produce the same absolute values per-system.
-         * @returns {number} ms-scale accurate time relative to other relative times.
-         */
-
-    }, {
-        key: 'relativeTime',
-        value: function relativeTime() {
-            return this.myNowObj.now();
-        }
-
-        /**
-         * Start a timer for measuring elapsed time,
-         * at the most accurate precision possible.
-         */
-
-    }, {
-        key: 'start',
-        value: function start() {
-            this.startTime = this.myNowObj.now();
-        }
-    }, {
-        key: 'timeElapsed',
-        value: function timeElapsed() {
-            return this.myNowObj.now() - this.startTime;
-        }
-    }], [{
-        key: 'USE_PERFORMANCE',
-        get: function get() {
-            return false;
-        }
-
-        /**
-         * Legacy object to allow for us to call now to get the old style date time (for backwards compatibility)
-         * @deprecated This is only called via the nowObj.now() if no other means is possible...
-         */
-
-    }, {
-        key: 'legacyDateCode',
-        get: function get() {
-            return {
-                now: function now() {
-                    return new Date().getTime();
-                }
-            };
-        }
-
-        /**
-         * Use this object to route all time functions through single access points.
-         */
-
-    }, {
-        key: 'nowObj',
-        get: function get() {
-            if (Timer.USE_PERFORMANCE && typeof self !== 'undefined' && self.performance && 'now' in self.performance) {
-                return self.performance;
-            } else if (Date.now) {
-                return Date;
-            }
-            return Timer.legacyDateCode;
-        }
-    }]);
-
-    return Timer;
-}();
-
-module.exports = Timer;
 
 /***/ }),
 /* 30 */
@@ -11658,7 +11658,7 @@ exports.encode = exports.stringify = __webpack_require__(149);
 
 /*<replacement>*/
 
-var processNextTick = __webpack_require__(25);
+var processNextTick = __webpack_require__(26);
 /*</replacement>*/
 
 module.exports = Writable;
@@ -11696,7 +11696,7 @@ Writable.WritableState = WritableState;
 
 /*<replacement>*/
 var util = __webpack_require__(14);
-util.inherits = __webpack_require__(1);
+util.inherits = __webpack_require__(2);
 /*</replacement>*/
 
 /*<replacement>*/
@@ -13178,7 +13178,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 var SharedDispatch = __webpack_require__(78);
 
-var log = __webpack_require__(2);
+var log = __webpack_require__(1);
 
 /**
  * This class serves as the central broker for message dispatch. It expects to operate on the main thread / Window and
@@ -13718,7 +13718,7 @@ function Parser(cbs, options){
 	if(this._cbs.onparserinit) this._cbs.onparserinit(this);
 }
 
-__webpack_require__(1)(Parser, __webpack_require__(5).EventEmitter);
+__webpack_require__(2)(Parser, __webpack_require__(5).EventEmitter);
 
 Parser.prototype._updatePosition = function(initialOffset){
 	if(this.endIndex === null){
@@ -14885,7 +14885,7 @@ function Stream(cbs, options){
 	});
 }
 
-__webpack_require__(1)(Stream, WritableStream);
+__webpack_require__(2)(Stream, WritableStream);
 
 WritableStream.prototype._write = function(chunk, encoding, cb){
 	if(chunk instanceof Buffer) chunk = this._decoder.write(chunk);
@@ -14959,13 +14959,13 @@ module.exports = typeof Promise === 'function' ? Promise : __webpack_require__(1
 
 /*<replacement>*/
 
-var processNextTick = __webpack_require__(25);
+var processNextTick = __webpack_require__(26);
 /*</replacement>*/
 
 module.exports = Readable;
 
 /*<replacement>*/
-var isArray = __webpack_require__(24);
+var isArray = __webpack_require__(25);
 /*</replacement>*/
 
 /*<replacement>*/
@@ -15001,7 +15001,7 @@ function _isUint8Array(obj) {
 
 /*<replacement>*/
 var util = __webpack_require__(14);
-util.inherits = __webpack_require__(1);
+util.inherits = __webpack_require__(2);
 /*</replacement>*/
 
 /*<replacement>*/
@@ -16019,7 +16019,7 @@ var Duplex = __webpack_require__(9);
 
 /*<replacement>*/
 var util = __webpack_require__(14);
-util.inherits = __webpack_require__(1);
+util.inherits = __webpack_require__(2);
 /*</replacement>*/
 
 util.inherits(Transform, Duplex);
@@ -16172,7 +16172,7 @@ function done(stream, er, data) {
 
 /*<replacement>*/
 
-var processNextTick = __webpack_require__(25);
+var processNextTick = __webpack_require__(26);
 /*</replacement>*/
 
 // undocumented cb() API, needed for core, not for public API
@@ -17981,7 +17981,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 var Cast = __webpack_require__(4);
 var MathUtil = __webpack_require__(10);
-var Timer = __webpack_require__(29);
+var Timer = __webpack_require__(23);
 
 var Scratch3MotionBlocks = function () {
     function Scratch3MotionBlocks(runtime) {
@@ -18474,14 +18474,14 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var ArgumentType = __webpack_require__(28);
+var ArgumentType = __webpack_require__(29);
 var BlockType = __webpack_require__(17);
 var Cast = __webpack_require__(4);
 var Clone = __webpack_require__(21);
 var Color = __webpack_require__(22);
 var MathUtil = __webpack_require__(10);
 var RenderedTarget = __webpack_require__(20);
-var log = __webpack_require__(2);
+var log = __webpack_require__(1);
 
 /**
  * Icon svg to be displayed at the left edge of each extension block, encoded as a data URI.
@@ -19895,10 +19895,10 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var ArgumentType = __webpack_require__(28);
+var ArgumentType = __webpack_require__(29);
 var BlockType = __webpack_require__(17);
 var color = __webpack_require__(22);
-var log = __webpack_require__(2);
+var log = __webpack_require__(1);
 
 /**
  * Icon svg to be displayed at the left edge of each extension block, encoded as a data URI.
@@ -20962,7 +20962,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var log = __webpack_require__(2);
+var log = __webpack_require__(1);
 
 /**
  * @typedef {object} DispatchCallMessage - a message to the dispatch system representing a service method call
@@ -21437,10 +21437,10 @@ module.exports = adapter;
 "use strict";
 
 
-var log = __webpack_require__(2);
+var log = __webpack_require__(1);
 var Thread = __webpack_require__(16);
 
-var _require = __webpack_require__(23),
+var _require = __webpack_require__(24),
     Map = _require.Map;
 
 var ExecuteRecord = __webpack_require__(81);
@@ -21827,7 +21827,7 @@ module.exports = ExecuteRecord;
 "use strict";
 
 
-var _require = __webpack_require__(23),
+var _require = __webpack_require__(24),
     Record = _require.Record;
 
 var MonitorRecord = Record({
@@ -21860,16 +21860,18 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 var EventEmitter = __webpack_require__(5);
 
-var _require = __webpack_require__(23),
+var _require = __webpack_require__(24),
     OrderedMap = _require.OrderedMap;
 
 var escapeHtml = __webpack_require__(117);
 
-var ArgumentType = __webpack_require__(28);
+var ArgumentType = __webpack_require__(29);
 var Blocks = __webpack_require__(12);
 var BlockType = __webpack_require__(17);
 var Sequencer = __webpack_require__(84);
 var Thread = __webpack_require__(16);
+var Timer = __webpack_require__(23);
+var log = __webpack_require__(1);
 
 // Virtual I/O devices.
 var Clock = __webpack_require__(88);
@@ -21888,6 +21890,12 @@ var defaultBlockPackages = {
     scratch3_data: __webpack_require__(68),
     scratch3_procedures: __webpack_require__(74)
 };
+
+/**
+ * @constant useVSync
+ * @type {boolean}
+ */
+var useVSync = typeof window !== 'undefined' && window.requestAnimationFrame;
 
 /**
  * Information used for converting Scratch argument types into scratch-blocks data.
@@ -22080,6 +22088,10 @@ var Runtime = function (_EventEmitter) {
          * @type {!number}
          */
         _this.currentStepTime = null;
+
+        _this.runtimeTimer = new Timer();
+        _this.nextRedrawTime = 0;
+        _this.skip = 0;
 
         /**
          * Whether any primitive has requested a redraw.
@@ -22477,7 +22489,7 @@ var Runtime = function (_EventEmitter) {
 
         /**
          * Retrieve the function associated with the given opcode.
-         * @param {?string} opcode The opcode to look up.
+         * @param {!string} opcode The opcode to look up.
          * @return {Function} The function which implements the opcode.
          */
 
@@ -22489,7 +22501,7 @@ var Runtime = function (_EventEmitter) {
 
         /**
          * Return whether an opcode represents a hat block.
-         * @param {?string} opcode The opcode to look up.
+         * @param {!string} opcode The opcode to look up.
          * @return {boolean} True if the op is known to be a hat.
          */
 
@@ -22649,7 +22661,6 @@ var Runtime = function (_EventEmitter) {
     }, {
         key: 'isActiveThread',
         value: function isActiveThread(thread) {
-            // return thread.stack.length > 0 && this.threads.indexOf(thread) > -1;
             return this.threads.indexOf(thread) > -1;
         }
 
@@ -22944,6 +22955,12 @@ var Runtime = function (_EventEmitter) {
             // Add done threads so that even if a thread finishes within 1 frame, the green
             // flag will still indicate that a script ran.
             this._emitProjectRunStatus(this.threads.length + doneThreads.length - this._getMonitorThreadCount([].concat(_toConsumableArray(this.threads), _toConsumableArray(doneThreads))));
+
+            // this._render();
+        }
+    }, {
+        key: '_render',
+        value: function _render() {
             if (this.renderer) {
                 // @todo: Only render when this.redrawRequested or clones rendered.
                 this.renderer.draw();
@@ -23012,7 +23029,11 @@ var Runtime = function (_EventEmitter) {
         value: function setCompatibilityMode(compatibilityModeOn) {
             this.compatibilityMode = compatibilityModeOn;
             if (this._steppingInterval) {
-                clearInterval(this._steppingInterval);
+                if (useVSync) {
+                    window.cancelAnimationFrame(this._steppingInterval);
+                } else {
+                    clearInterval(this._steppingInterval);
+                }
                 this.start();
             }
         }
@@ -23355,9 +23376,44 @@ var Runtime = function (_EventEmitter) {
                 interval = Runtime.THREAD_STEP_INTERVAL_COMPATIBILITY;
             }
             this.currentStepTime = interval;
-            this._steppingInterval = setInterval(function () {
-                _this3._step();
-            }, interval);
+
+            if (useVSync) {
+                var callback = function callback() {
+                    var now = _this3.runtimeTimer.time();
+                    var elapsed = now - _this3.nextRedrawTime;
+                    if (elapsed >= -(1000 / 90)) {
+                        _this3.skip = 0;
+
+                        // Gently nudge the frame timer in sync with the monitors vsync.
+                        var gentleSync = elapsed / 10.0;
+
+                        _this3.nextRedrawTime += _this3.currentStepTime + gentleSync;
+                        if (now >= _this3.nextRedrawTime) {
+                            log.warn('Running too slow to maintain framerate');
+                            _this3.nextRedrawTime = now + _this3.currentStepTime;
+                        }
+                        _this3._step();
+                    } else if (elapsed < -(1000 / 5)) {
+                        _this3.skip++;
+                        log.warn('Frame Catch Up (Way behind)');
+                        _this3.nextRedrawTime = now + _this3.currentStepTime;
+                    } else {
+                        _this3.skip++;
+                        if (_this3.skip > 1) {
+                            log.warn('Unexpected Frame skip (x%1)', _this3.skip);
+                        }
+                    }
+
+                    _this3._render();
+                    _this3._steppingInterval = window.requestAnimationFrame(callback);
+                };
+                this._steppingInterval = window.requestAnimationFrame(callback);
+            } else {
+                this._steppingInterval = setInterval(function () {
+                    _this3._step();
+                    _this3._render();
+                }, interval);
+            }
         }
     }], [{
         key: 'STAGE_WIDTH',
@@ -23556,7 +23612,7 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var Timer = __webpack_require__(29);
+var Timer = __webpack_require__(23);
 var Thread = __webpack_require__(16);
 var execute = __webpack_require__(80);
 
@@ -23864,11 +23920,11 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 var EventEmitter = __webpack_require__(5);
 
 var Blocks = __webpack_require__(12);
-var Variable = __webpack_require__(27);
-var List = __webpack_require__(26);
+var Variable = __webpack_require__(28);
+var List = __webpack_require__(27);
 var uid = __webpack_require__(30);
 
-var _require = __webpack_require__(23),
+var _require = __webpack_require__(24),
     Map = _require.Map;
 
 /**
@@ -24149,7 +24205,7 @@ var _createClass = function () { function defineProperties(target, props) { for 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 var dispatch = __webpack_require__(41);
-var log = __webpack_require__(2);
+var log = __webpack_require__(1);
 
 var BlockType = __webpack_require__(17);
 
@@ -24461,7 +24517,7 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var Timer = __webpack_require__(29);
+var Timer = __webpack_require__(23);
 
 var Clock = function () {
     function Clock(runtime) {
@@ -25252,11 +25308,11 @@ var Blocks = __webpack_require__(12);
 var RenderedTarget = __webpack_require__(20);
 var Sprite = __webpack_require__(43);
 var Color = __webpack_require__(22);
-var log = __webpack_require__(2);
+var log = __webpack_require__(1);
 var uid = __webpack_require__(30);
 var specMap = __webpack_require__(93);
-var Variable = __webpack_require__(27);
-var List = __webpack_require__(26);
+var Variable = __webpack_require__(28);
+var List = __webpack_require__(27);
 
 var _require = __webpack_require__(18),
     loadCostume = _require.loadCostume;
@@ -27085,8 +27141,8 @@ module.exports = specMap;
 var vmPackage = __webpack_require__(177);
 var Blocks = __webpack_require__(12);
 var Sprite = __webpack_require__(43);
-var Variable = __webpack_require__(27);
-var List = __webpack_require__(26);
+var Variable = __webpack_require__(28);
+var List = __webpack_require__(27);
 
 var _require = __webpack_require__(18),
     loadCostume = _require.loadCostume;
@@ -27333,7 +27389,7 @@ var EventEmitter = __webpack_require__(5);
 
 var centralDispatch = __webpack_require__(41);
 var ExtensionManager = __webpack_require__(87);
-var log = __webpack_require__(2);
+var log = __webpack_require__(1);
 var Runtime = __webpack_require__(83);
 var sb2 = __webpack_require__(92);
 var sb3 = __webpack_require__(94);
@@ -30303,7 +30359,7 @@ function FeedHandler(callback, options){
 	this.init(callback, options);
 }
 
-__webpack_require__(1)(FeedHandler, DomHandler);
+__webpack_require__(2)(FeedHandler, DomHandler);
 
 FeedHandler.prototype.init = DomHandler;
 
@@ -30435,7 +30491,7 @@ function Stream(options){
 	Parser.call(this, new Cbs(this), options);
 }
 
-__webpack_require__(1)(Stream, Parser);
+__webpack_require__(2)(Stream, Parser);
 
 Stream.prototype.readable = true;
 
@@ -33278,7 +33334,7 @@ var Transform = __webpack_require__(53);
 
 /*<replacement>*/
 var util = __webpack_require__(14);
-util.inherits = __webpack_require__(1);
+util.inherits = __webpack_require__(2);
 /*</replacement>*/
 
 util.inherits(PassThrough, Transform);
@@ -41824,7 +41880,7 @@ return /******/ (function(modules) { // webpackBootstrap
 module.exports = Stream;
 
 var EE = __webpack_require__(5).EventEmitter;
-var inherits = __webpack_require__(1);
+var inherits = __webpack_require__(2);
 
 inherits(Stream, EE);
 Stream.Readable = __webpack_require__(7);
@@ -41934,7 +41990,7 @@ Stream.prototype.pipe = function(dest, options) {
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(Buffer, global, process) {var capability = __webpack_require__(58)
-var inherits = __webpack_require__(1)
+var inherits = __webpack_require__(2)
 var response = __webpack_require__(166)
 var stream = __webpack_require__(7)
 var toArrayBuffer = __webpack_require__(168)
@@ -42247,7 +42303,7 @@ var unsafeHeaders = [
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(process, Buffer, global) {var capability = __webpack_require__(58)
-var inherits = __webpack_require__(1)
+var inherits = __webpack_require__(2)
 var stream = __webpack_require__(7)
 
 var rStates = exports.readyStates = {
