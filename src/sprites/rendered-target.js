@@ -53,7 +53,9 @@ class RenderedTarget extends Target {
             pixelate: 0,
             mosaic: 0,
             brightness: 0,
-            ghost: 0
+            ghost: 0,
+            scalex: 100,
+            scaley: 100
         };
 
         /**
@@ -210,15 +212,16 @@ class RenderedTarget extends Target {
     _getRenderedDirectionAndScale () {
         // Default: no changes to `this.direction` or `this.scale`.
         let finalDirection = this.direction;
-        let finalScale = [this.size, this.size];
+        const finalScale = [this.size * this.effects.scalex / 100, this.size * this.effects.scaley / 100];
         if (this.rotationStyle === RenderedTarget.ROTATION_STYLE_NONE) {
             // Force rendered direction to be 90.
             finalDirection = 90;
         } else if (this.rotationStyle === RenderedTarget.ROTATION_STYLE_LEFT_RIGHT) {
             // Force rendered direction to be 90, and flip drawable if needed.
             finalDirection = 90;
-            const scaleFlip = (this.direction < 0) ? -1 : 1;
-            finalScale = [scaleFlip * this.size, this.size];
+            if (this.direction < 0) {
+                finalScale[0] *= -1;
+            }
         }
         return {direction: finalDirection, scale: finalScale};
     }
@@ -337,7 +340,12 @@ class RenderedTarget extends Target {
         this.effects[effectName] = value;
         if (this.renderer) {
             const props = {};
-            props[effectName] = this.effects[effectName];
+            if (effectName === 'scalex' || effectName === 'scaley') {
+                const renderedDirectionScale = this._getRenderedDirectionAndScale();
+                props.scale = renderedDirectionScale.scale;
+            } else {
+                props[effectName] = this.effects[effectName];
+            }
             this.renderer.updateDrawableProperties(this.drawableID, props);
             if (this.visible) {
                 this.runtime.requestRedraw();
@@ -349,12 +357,20 @@ class RenderedTarget extends Target {
      * Clear all graphic effects on this rendered target.
      */
     clearEffects () {
+        const props = {};
         for (const effectName in this.effects) {
             if (!this.effects.hasOwnProperty(effectName)) continue;
-            this.effects[effectName] = 0;
+            if (effectName === 'scalex' || effectName === 'scaley') {
+                this.effects[effectName] = 100;
+            } else {
+                this.effects[effectName] = 0;
+                props[effectName] = 0;
+            }
         }
+        const renderedDirectionScale = this._getRenderedDirectionAndScale();
+        props.scale = renderedDirectionScale.scale;
         if (this.renderer) {
-            this.renderer.updateDrawableProperties(this.drawableID, this.effects);
+            this.renderer.updateDrawableProperties(this.drawableID, props);
             if (this.visible) {
                 this.runtime.requestRedraw();
             }
