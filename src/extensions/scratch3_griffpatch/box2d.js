@@ -7,9 +7,36 @@
 (function(Scratch) {
   'use strict';
 
-  if (!Scratch.extensions.unsandboxed) {
-    throw new Error('Box2D must be run unsandboxed');
+  class Box2D {
+    getInfo () {
+      return {
+        id: 'box2d',
+        name: 'Box2D',
+        blocks: [
+          {
+            opcode: 'get',
+            blockType: Scratch.BlockType.REPORTER,
+            text: 'GET [URL]',
+            arguments: {
+              URL: {
+                type: Scratch.ArgumentType.STRING,
+                defaultValue: 'hello world'
+              }
+            }
+          }
+        ]
+      };
+    }
+
+    get (args) {
+      return Scratch.box2d(args.URL)
+        .then(r => r.text())
+        .catch(() => '');
+    }
   }
+
+  Scratch.extensions.register(new Box2D());
+})(Scratch);
 
   // First we need to load the Box2D physics library that this extension uses.
   // It's not currently advised to load more scripts in custom extensions, so we copied and pasted
